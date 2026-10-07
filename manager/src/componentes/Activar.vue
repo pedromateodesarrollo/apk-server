@@ -60,7 +60,11 @@ async function activa() {
     </template>
     <template v-else>
       <p class="aviso">{{ error || 'Este enlace ya venció.' }}</p>
-      <p class="apagado">Pídele otro a quien te invitó.</p>
+      <p class="apagado">
+        Si ya pusiste tu clave con él, entra con tu correo y esa clave. Si no,
+        pídele otro enlace a quien te invitó.
+      </p>
+      <a class="boton" href="/#/panel" style="margin-top: 8px">Entrar al panel</a>
     </template>
   </div>
 </template>
