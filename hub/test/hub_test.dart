@@ -167,6 +167,21 @@ void main() {
     expect(d['retirada'], isNull);
   });
 
+  test('un equipo nuevo que abre el socket antes de su primera consulta queda conectado', () async {
+    final ws = await WebSocket.connect(
+      'ws://127.0.0.1:${hub.puerto}/v1/ws?app=inventario&instalacion=equipo-nuevo-01',
+    );
+    ws.listen((_) {});
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await pide('POST', '/v1/apps/inventario/consulta', json: {'build': 1, 'instalacion': 'equipo-nuevo-01'});
+    final (_, d) = await pide('GET', '/v1/apps/inventario/instalaciones', token: llave);
+    final nuevo = (d['instalaciones'] as List).firstWhere((i) => i['clave'] == 'equipo-nuevo-01');
+    expect(nuevo['conectado'], isTrue);
+    await ws.close();
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await hub.bd.ejecuta("delete from apk.instalacion where clave = 'equipo-nuevo-01'");
+  });
+
   test('el WebSocket avisa al publicar y marca el equipo conectado', () async {
     final ws = await WebSocket.connect(
       'ws://127.0.0.1:${hub.puerto}/v1/ws?app=inventario&instalacion=equipo-0001',

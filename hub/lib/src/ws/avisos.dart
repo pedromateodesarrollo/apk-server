@@ -38,6 +38,12 @@ class Avisos {
   int get total => _total;
   int conectados(String slug) => _porApp[slug]?.length ?? 0;
 
+  /// Si la instalación [clave] de [slug] tiene un socket abierto ahora. La
+  /// consulta lo usa al anotar el equipo: la primera vez el socket suele
+  /// abrirse ANTES de que la consulta cree la fila, y la marca de conectado
+  /// que hace el upgrade no encuentra nada que marcar.
+  bool vivo(String slug, String clave) => _vivas.containsKey('$slug:$clave');
+
   /// Manejador de upgrade para [Servidor.upgrades]. Devuelve true si la
   /// petición era suya (la haya aceptado o no).
   Future<bool> upgrade(HttpRequest pet) async {

@@ -2,6 +2,17 @@
 
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## 0.1.1 — 2026-10-07
+
+### Hub
+
+* Un equipo recién instalado figuraba como desconectado aunque tuviera el
+  WebSocket abierto. La app abre el socket y hace su primera consulta a la
+  vez; el socket solía llegar antes, cuando la fila del equipo todavía no
+  existía, y la marca de «conectado» no encontraba nada que marcar. Ahora la
+  consulta toma el estado del registro de sockets vivos. Visto con la primera
+  terminal real (un emulador con Android 15).
+
 ## 0.1.0 — 2026-10-07
 
 Primera versión. Nace del mecanismo de actualización de las apps de Chalona,

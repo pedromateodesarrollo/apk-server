@@ -47,7 +47,7 @@ class Hub {
     registraRutasLlaves(servidor);
     // Las públicas antes que las del panel: `GET /v1/apps/:app` es la ficha
     // pública y tiene que casar antes que nada que se le parezca.
-    registraRutasPublicas(servidor, almacen);
+    registraRutasPublicas(servidor, almacen, avisos);
     registraRutasApps(servidor, almacen, avisos);
 
     // Al arrancar no hay ningún socket: lo que diga la base es de antes del

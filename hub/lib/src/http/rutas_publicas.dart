@@ -6,13 +6,14 @@ import '../almacen.dart';
 import '../catalogo.dart';
 import '../limitador.dart';
 import '../log.dart';
+import '../ws/avisos.dart';
 import 'servidor.dart';
 
 /// Lo que usan las apps instaladas y la página de instalación. Todo sin
 /// credencial, a propósito: un equipo nuevo no tiene ninguna, y lo que se
 /// reparte (un APK que se instala en cualquier teléfono) ya es público en
 /// cuanto sale. Lo que se protege es publicar, no descargar.
-void registraRutasPublicas(Servidor s, Almacen almacen) {
+void registraRutasPublicas(Servidor s, Almacen almacen, Avisos avisos) {
   // Una consulta por equipo por hora es lo normal; esto frena al que martilla.
   final freno = Limitador(cupo: 240, ventana: const Duration(minutes: 1));
 
@@ -79,7 +80,7 @@ void registraRutasPublicas(Servidor s, Almacen almacen) {
     final clave = p.texto('instalacion');
     if (_claveValida(clave)) {
       try {
-        await _anota(p, appId, clave, build);
+        await _anota(p, appId, clave, build, conectado: avisos.vivo(slug, clave));
       } catch (e) {
         // Que una estadística no le niegue la actualización a nadie.
         log.aviso('consulta', 'no se pudo anotar la instalación de $slug: $e');
@@ -171,7 +172,7 @@ String _corto(Peticion p, String clave, [int max = 120]) {
 }
 
 /// Alta o puesta al día de la instalación que pregunta.
-Future<void> _anota(Peticion p, int app, String clave, int build) async {
+Future<void> _anota(Peticion p, int app, String clave, int build, {required bool conectado}) async {
   final huellaCruda = _corto(p, 'huella', 100);
   final huella = huellaCruda.isEmpty ? null : huellaCruda;
   var contexto = p.cuerpo['contexto'];
@@ -191,8 +192,8 @@ Future<void> _anota(Peticion p, int app, String clave, int build) async {
     }
     await tx.ejecuta(
       '''insert into apk.instalacion
-           (app, clave, huella, build, version, modelo, fabricante, android, contexto, ip)
-         values (@a, @c, @h, @b, @v, @m, @f, @and, @ctx, @ip)
+           (app, clave, huella, build, version, modelo, fabricante, android, contexto, ip, conectado)
+         values (@a, @c, @h, @b, @v, @m, @f, @and, @ctx, @ip, @vivo)
          on conflict (app, clave) do update set
            huella = coalesce(excluded.huella, apk.instalacion.huella),
            build = excluded.build,
@@ -203,6 +204,7 @@ Future<void> _anota(Peticion p, int app, String clave, int build) async {
            contexto = case when excluded.contexto = '{}'::jsonb then apk.instalacion.contexto
                            else excluded.contexto end,
            ip = excluded.ip,
+           conectado = excluded.conectado,
            ultima_vez = now()''',
       {
         'a': app,
@@ -215,6 +217,7 @@ Future<void> _anota(Peticion p, int app, String clave, int build) async {
         'and': p.entero('android'),
         'ctx': contexto,
         'ip': p.ip,
+        'vivo': conectado,
       },
     );
   });
