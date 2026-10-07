@@ -1,0 +1,19 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Se funden en el manifiesto de cada app que use el paquete: ninguna
+         tiene que declararlos.
+
+         REQUEST_INSTALL_PACKAGES: instalar el APK que la app se bajó.
+         UPDATE_PACKAGES_WITHOUT_USER_ACTION: que en Android 12+ esa
+         instalación no pregunte cuando la app se actualiza a sí misma y la
+         persona ya le dio «Permitir de esta fuente». Es un permiso normal: se
+         concede al instalar, sin diálogo. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+
+    <application>
+        <!-- Recibe el resultado de la instalación (Instalador.resultado). -->
+        <receiver
+            android:name="com.chalonasoft.apk_server.InstalacionReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

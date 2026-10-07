@@ -1,0 +1,18 @@
+name: apk_server_hub
+description: Hub de apk-server — repositorio de APK, consulta de versión, avisos por WebSocket y panel web.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: '>=3.9.0 <4.0.0'
+
+# Dos dependencias a propósito, igual que print-server: quien clone esto tiene
+# que poder compilarlo sin arrastrar medio ecosistema. HTTP, WebSocket y
+# descompresión los da dart:io.
+dependencies:
+  postgres: ^3.1.0
+  crypto: ^3.0.0
+
+dev_dependencies:
+  test: ^1.24.0
+  lints: ^4.0.0

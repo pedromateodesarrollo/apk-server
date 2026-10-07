@@ -1,0 +1,68 @@
+name: análisis y pruebas
+
+on:
+  push: { branches: [main] }
+  pull_request:
+
+jobs:
+  hub:
+    runs-on: ubuntu-latest
+    # Postgres de verdad para las pruebas de punta a punta (hub/test/hub_test.dart).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: apk
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+      - name: hub
+        working-directory: hub
+        env:
+          APK_PRUEBA_DATABASE_URL: postgres://postgres:apk@localhost:5432/postgres?sslmode=disable
+        run: |
+          dart pub get
+          dart analyze
+          dart test
+      - name: cliente dart
+        working-directory: cliente/dart
+        run: |
+          dart pub get
+          dart analyze
+          dart test
+
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+      - working-directory: cliente/flutter
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+  # La imagen se compila en cada cambio a propósito: el `docker compose up` del
+  # README es lo primero que prueba quien llega.
+  imagen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f hub/Dockerfile -t apk-server-hub .
+
+  sitio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - working-directory: manager
+        run: |
+          npm install
+          npm run docs
+          npm run build
+          git diff --exit-code ../docs/api.md || { echo "docs/api.md no está al día: corre npm run docs"; exit 1; }

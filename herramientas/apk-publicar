@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Publica un APK en un hub de apk-server.
+#
+#   APK_SERVER_LLAVE=cak_... apk-publicar --hub https://tu-hub --app inventario \
+#       --apk app-release.apk [--build 84] [--version 1.55.0] [--notas "…"] [--requerido]
+#
+# La llave sale de APK_SERVER_LLAVE (o de --llave-archivo, un archivo con la
+# llave y nada más): no se pasa por argumento, que queda en el historial y en
+# `ps`. Con --build/--version el hub comprueba que el APK sea ese y lo
+# rechaza si no.
+set -euo pipefail
+
+HUB="" APP="" APK="" BUILD="" VERSION="" NOTAS="" REQUERIDO="" ARCHIVO_LLAVE=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --hub) HUB="${2%/}"; shift 2 ;;
+    --app) APP="$2"; shift 2 ;;
+    --apk) APK="$2"; shift 2 ;;
+    --build) BUILD="$2"; shift 2 ;;
+    --version) VERSION="$2"; shift 2 ;;
+    --notas) NOTAS="$2"; shift 2 ;;
+    --requerido) REQUERIDO=1; shift ;;
+    --llave-archivo) ARCHIVO_LLAVE="$2"; shift 2 ;;
+    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+    *) echo "Argumento desconocido: $1" >&2; exit 64 ;;
+  esac
+done
+
+LLAVE="${APK_SERVER_LLAVE:-}"
+[[ -z "$LLAVE" && -n "$ARCHIVO_LLAVE" ]] && LLAVE="$(tr -d '[:space:]' < "$ARCHIVO_LLAVE")"
+[[ -n "$HUB" && -n "$APP" && -n "$APK" ]] || { echo "Faltan --hub, --app o --apk" >&2; exit 64; }
+[[ -n "$LLAVE" ]] || { echo "Falta la llave: APK_SERVER_LLAVE o --llave-archivo" >&2; exit 64; }
+[[ -f "$APK" ]] || { echo "No existe $APK" >&2; exit 66; }
+
+# Codifica para la URL byte a byte (las notas llevan acentos y espacios).
+urlencode() {
+  local LC_ALL=C s="$1" i c out=""
+  for ((i = 0; i < ${#s}; i++)); do
+    c="${s:i:1}"
+    case "$c" in
+      [a-zA-Z0-9.~_-]) out+="$c" ;;
+      *) out+="$(printf '%%%02X' "'$c")" ;;
+    esac
+  done
+  printf '%s' "$out"
+}
+
+q=""
+[[ -n "$BUILD" ]] && q+="&build=$(urlencode "$BUILD")"
+[[ -n "$VERSION" ]] && q+="&version=$(urlencode "$VERSION")"
+[[ -n "$NOTAS" ]] && q+="&notas=$(urlencode "$NOTAS")"
+[[ -n "$REQUERIDO" ]] && q+="&requerido=1"
+url="$HUB/v1/apps/$APP/versiones${q:+?${q:1}}"
+
+echo "→ subiendo $(du -h "$APK" | cut -f1) a $HUB ($APP)…" >&2
+respuesta="$(curl -sS -X POST "$url" \
+  -H "authorization: Bearer $LLAVE" \
+  -H 'content-type: application/vnd.android.package-archive' \
+  --data-binary @"$APK" -w $'\n%{http_code}')"
+codigo="${respuesta##*$'\n'}"
+cuerpo="${respuesta%$'\n'*}"
+echo "$cuerpo"
+if [[ "$codigo" != 2* ]]; then
+  echo "✘ el hub contestó $codigo" >&2
+  exit 1
+fi
+echo "✓ publicada" >&2

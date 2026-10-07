@@ -1,0 +1,302 @@
+/* Un solo archivo de estilos: el sitio son unas pocas pantallas, no un sistema
+   de diseño. Variables para claro/oscuro y nada más. Sale de print-server. */
+
+:root {
+  --fondo: #ffffff;
+  --fondo-2: #f6f7f9;
+  --fondo-3: #eceef2;
+  --texto: #16181d;
+  --texto-2: #5b6270;
+  --borde: #dfe3ea;
+  --marca: #2563eb;
+  --marca-suave: #eff4ff;
+  --ok: #16a34a;
+  --mal: #dc2626;
+  --tibio: #ca8a04;
+  --radio: 12px;
+  --ancho: 1080px;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fondo: #0e1014;
+    --fondo-2: #15181e;
+    --fondo-3: #1d222a;
+    --texto: #e8eaee;
+    --texto-2: #9aa3b2;
+    --borde: #262b34;
+    --marca: #5b8cff;
+    --marca-suave: #172033;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--marca); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+h1, h2, h3 { line-height: 1.2; margin: 0 0 12px; letter-spacing: -0.02em; }
+h1 { font-size: clamp(30px, 5vw, 50px); }
+h2 { font-size: clamp(22px, 3vw, 30px); }
+h3 { font-size: 18px; }
+p { margin: 0 0 14px; }
+
+.contenedor { max-width: var(--ancho); margin: 0 auto; padding: 0 22px; }
+.apagado { color: var(--texto-2); }
+.centro { text-align: center; }
+
+/* ------------------------------------------------------------------ barra */
+.barra {
+  position: sticky; top: 0; z-index: 10;
+  background: color-mix(in srgb, var(--fondo) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--borde);
+}
+.barra .contenedor {
+  display: flex; align-items: center; gap: 20px; height: 62px;
+}
+.logo { white-space: nowrap; font-weight: 700; letter-spacing: -0.03em; font-size: 18px; color: var(--texto); }
+.logo span { color: var(--marca); }
+.barra nav { margin-left: auto; display: flex; gap: 18px; align-items: center; }
+.barra nav a { color: var(--texto-2); font-size: 15px; }
+.barra nav a:hover, .barra nav a.activo { color: var(--texto); text-decoration: none; }
+
+/* ----------------------------------------------------------------- botones */
+.boton {
+  display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+  padding: 10px 18px; border-radius: 9px; border: 1px solid transparent;
+  background: var(--marca); color: #fff; font: inherit; font-weight: 600;
+  font-size: 15px; cursor: pointer; white-space: nowrap;
+}
+.boton:hover { filter: brightness(1.08); text-decoration: none; }
+.boton.suave { background: transparent; color: var(--texto); border-color: var(--borde); }
+.boton.suave:hover { background: var(--fondo-2); }
+.boton.chico { padding: 6px 12px; font-size: 14px; }
+.boton.peligro { background: var(--mal); }
+.boton:disabled { opacity: .5; cursor: default; }
+
+/* ------------------------------------------------------------------- hero */
+.hero { padding: 84px 0 64px; }
+.hero .contenedor { max-width: 880px; text-align: center; }
+.hero .lema { font-size: clamp(17px, 2.2vw, 21px); color: var(--texto-2); margin: 0 auto 30px; max-width: 660px; }
+.hero .acciones { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.etiqueta {
+  display: inline-block; padding: 5px 12px; border-radius: 999px;
+  background: var(--marca-suave); color: var(--marca);
+  font-size: 13px; font-weight: 600; margin-bottom: 20px;
+}
+
+/* ------------------------------------------------------------------ trozos */
+.seccion { padding: 64px 0; border-top: 1px solid var(--borde); }
+.rejilla { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.tarjeta {
+  background: var(--fondo-2); border: 1px solid var(--borde);
+  border-radius: var(--radio); padding: 22px;
+}
+.tarjeta h3 { margin-bottom: 6px; }
+.tarjeta p { margin: 0; color: var(--texto-2); font-size: 15px; }
+
+.pasos { counter-reset: paso; display: grid; gap: 22px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.paso { position: relative; padding-left: 46px; }
+.paso::before {
+  counter-increment: paso; content: counter(paso);
+  position: absolute; left: 0; top: 0;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--marca); color: #fff;
+  display: grid; place-items: center; font-weight: 700; font-size: 15px;
+}
+
+pre {
+  background: var(--fondo-3); border: 1px solid var(--borde);
+  border-radius: var(--radio); padding: 16px; overflow-x: auto;
+  font: 13px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  margin: 0 0 14px;
+}
+code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .92em; }
+p code, li code, td code {
+  background: var(--fondo-3); padding: 2px 6px; border-radius: 5px;
+}
+
+.diagrama {
+  font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace;
+  white-space: pre; overflow-x: auto; color: var(--texto-2);
+  background: var(--fondo-2); border: 1px solid var(--borde);
+  border-radius: var(--radio); padding: 20px;
+}
+
+/* ------------------------------------------------------------------- docs */
+.docs { display: grid; grid-template-columns: 220px 1fr; gap: 36px; padding: 36px 0 80px; align-items: start; }
+.docs-menu { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 3px; }
+.docs-menu a { color: var(--texto-2); font-size: 14px; padding: 5px 10px; border-radius: 7px; }
+.docs-menu a:hover { background: var(--fondo-2); color: var(--texto); text-decoration: none; }
+.docs-menu .grupo { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--texto-2); margin: 16px 0 4px 10px; font-weight: 700; }
+
+.punto-final { border: 1px solid var(--borde); border-radius: var(--radio); margin-bottom: 16px; overflow: hidden; }
+.punto-final > header {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px; background: var(--fondo-2); cursor: pointer;
+}
+.metodo {
+  font: 700 12px/1 ui-monospace, monospace; padding: 5px 8px; border-radius: 6px;
+  background: var(--marca); color: #fff; letter-spacing: .04em;
+}
+.metodo.GET { background: #0d9488; }
+.metodo.POST { background: #2563eb; }
+.metodo.PATCH { background: #ca8a04; }
+.metodo.DELETE { background: #dc2626; }
+.ruta { font: 14px ui-monospace, monospace; }
+.acceso { margin-left: auto; font-size: 12px; color: var(--texto-2); }
+.cuerpo-doc { padding: 16px; border-top: 1px solid var(--borde); }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 14px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--borde); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-2); }
+
+/* ------------------------------------------------------------------ panel */
+.app { display: grid; grid-template-columns: 210px 1fr; min-height: calc(100vh - 62px); }
+.lateral { border-right: 1px solid var(--borde); padding: 20px 12px; background: var(--fondo-2); }
+.lateral button {
+  display: block; width: 100%; text-align: left; padding: 9px 12px; margin-bottom: 3px;
+  background: transparent; border: 0; border-radius: 8px; color: var(--texto-2);
+  font: inherit; font-size: 15px; cursor: pointer;
+}
+.lateral button:hover { background: var(--fondo-3); color: var(--texto); }
+.lateral button.activo { background: var(--marca); color: #fff; }
+.contenido { padding: 26px 30px; overflow-x: auto; }
+
+.cabecera-seccion { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+.cabecera-seccion h2 { margin: 0; }
+.cabecera-seccion .boton { margin-left: auto; }
+
+.estado { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; }
+.punto { width: 9px; height: 9px; border-radius: 50%; background: var(--texto-2); flex: none; }
+.punto.ok { background: var(--ok); }
+.punto.mal { background: var(--mal); }
+.punto.tibio { background: var(--tibio); }
+
+form.caja { max-width: 380px; }
+label { display: block; margin: 14px 0 5px; font-weight: 600; font-size: 14px; }
+input, select {
+  width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--borde);
+  background: var(--fondo); color: var(--texto); font: inherit; font-size: 15px;
+}
+input:focus, select:focus { outline: 2px solid var(--marca); outline-offset: -1px; }
+
+.aviso { color: var(--mal); font-size: 14px; }
+
+/* Una marca chica junto a un nombre: «requerida», «retirada», «nueva». */
+.nueva {
+  display: inline-block; margin-left: 8px; padding: 2px 8px;
+  border-radius: 999px; background: var(--marca); color: #fff;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; vertical-align: middle;
+}
+.exito {
+  background: var(--marca-suave); border: 1px solid var(--marca);
+  border-radius: var(--radio); padding: 14px; margin-bottom: 16px; font-size: 14px;
+}
+.secreto {
+  font: 13px ui-monospace, monospace; word-break: break-all;
+  background: var(--fondo-3); padding: 10px; border-radius: 8px; margin-top: 8px;
+}
+
+.pie { border-top: 1px solid var(--borde); padding: 30px 0; color: var(--texto-2); font-size: 14px; }
+.pie .contenedor { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
+.pie nav { margin-left: auto; display: flex; gap: 18px; }
+
+@media (max-width: 780px) {
+  .docs { grid-template-columns: 1fr; }
+  .docs-menu { position: static; flex-direction: row; flex-wrap: wrap; }
+  .docs-menu .grupo { width: 100%; margin: 8px 0 0; }
+  .app { grid-template-columns: 1fr; }
+  .lateral { display: flex; overflow-x: auto; gap: 6px; border-right: 0; border-bottom: 1px solid var(--borde); }
+  .lateral button { width: auto; white-space: nowrap; }
+  .contenido { padding: 20px 16px; }
+}
+
+/* ============================================================ apk-server */
+
+.nueva.gris { background: var(--fondo-3); color: var(--texto-2); }
+.nueva.rojo { background: var(--mal); }
+.nueva.verde { background: var(--ok); }
+
+/* Tarjetas de apps en el panel. */
+.apps { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.app-tarjeta {
+  display: flex; gap: 14px; align-items: flex-start; text-align: left;
+  background: var(--fondo-2); border: 1px solid var(--borde); border-radius: var(--radio);
+  padding: 16px; cursor: pointer; color: inherit; font: inherit;
+}
+.app-tarjeta:hover { border-color: var(--marca); text-decoration: none; }
+.app-tarjeta h3 { margin: 0 0 2px; font-size: 16px; }
+.app-tarjeta .datos { font-size: 13px; color: var(--texto-2); line-height: 1.5; }
+.icono-app {
+  width: 48px; height: 48px; border-radius: 12px; flex: none; object-fit: cover;
+  background: var(--marca-suave); color: var(--marca);
+  display: grid; place-items: center; font-weight: 800; font-size: 20px;
+}
+.icono-app.grande { width: 84px; height: 84px; border-radius: 20px; font-size: 34px; }
+
+/* Pestañas dentro de una app. */
+.pestanas { display: flex; gap: 4px; border-bottom: 1px solid var(--borde); margin-bottom: 18px; overflow-x: auto; }
+.pestanas button {
+  background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 14px;
+  font: inherit; font-size: 15px; color: var(--texto-2); cursor: pointer; white-space: nowrap;
+}
+.pestanas button.activo { color: var(--texto); border-bottom-color: var(--marca); font-weight: 600; }
+
+/* Zona para soltar un APK. */
+.soltar {
+  border: 2px dashed var(--borde); border-radius: var(--radio); padding: 22px;
+  text-align: center; color: var(--texto-2); margin-bottom: 18px; cursor: pointer;
+}
+.soltar.encima { border-color: var(--marca); background: var(--marca-suave); color: var(--texto); }
+.barra-progreso { height: 6px; background: var(--fondo-3); border-radius: 99px; overflow: hidden; margin-top: 10px; }
+.barra-progreso > div { height: 100%; background: var(--marca); transition: width .2s; }
+
+/* Distribución de builds: una barra por build. */
+.reparto { display: grid; gap: 6px; margin-bottom: 18px; max-width: 560px; }
+.reparto .fila { display: grid; grid-template-columns: 120px 1fr 52px; gap: 10px; align-items: center; font-size: 14px; }
+.reparto .barrita { height: 10px; border-radius: 99px; background: var(--fondo-3); overflow: hidden; }
+.reparto .barrita > div { height: 100%; background: var(--marca); }
+.reparto .barrita > div.vieja { background: var(--tibio); }
+
+.textarea, textarea {
+  width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--borde);
+  background: var(--fondo); color: var(--texto); font: inherit; font-size: 15px; min-height: 70px;
+}
+.mono { font: 12px ui-monospace, Menlo, Consolas, monospace; color: var(--texto-2); word-break: break-all; }
+
+/* Tablas que en el teléfono pasan a tarjetas. */
+@media (max-width: 780px) {
+  table.tarjetas thead { display: none; }
+  table.tarjetas, table.tarjetas tbody, table.tarjetas tr, table.tarjetas td { display: block; width: 100%; }
+  table.tarjetas tr {
+    border: 1px solid var(--borde); border-radius: var(--radio); padding: 10px 12px;
+    margin-bottom: 10px; background: var(--fondo-2);
+  }
+  table.tarjetas td { border: 0; padding: 3px 0; }
+  table.tarjetas td[data-t]::before {
+    content: attr(data-t); display: inline-block; min-width: 92px;
+    font-size: 12px; color: var(--texto-2); text-transform: uppercase; letter-spacing: .05em;
+  }
+}
+
+/* -------------------------------------------------- página de instalación */
+.instalar { max-width: 560px; margin: 0 auto; padding: 48px 22px 70px; text-align: center; }
+.instalar h1 { font-size: clamp(26px, 6vw, 36px); margin-top: 18px; }
+.instalar .version { color: var(--texto-2); margin-bottom: 26px; }
+.instalar .boton { font-size: 17px; padding: 14px 26px; }
+.instalar .qr { width: 220px; height: 220px; margin: 30px auto 10px; background: #fff; padding: 12px; border-radius: 14px; }
+.instalar .qr svg { width: 100%; height: 100%; display: block; }
+.instalar .notas { text-align: left; white-space: pre-wrap; margin-top: 24px; }
+.instalar ol { text-align: left; color: var(--texto-2); font-size: 15px; padding-left: 20px; }

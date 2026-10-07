@@ -1,0 +1,18 @@
+# El lockfile del hub SÍ se versiona: es una aplicación, no una librería, y lo
+# que se despliega tiene que poder reconstruirse igual dentro de un año.
+.dart_tool/
+.packages
+build/
+*.log
+.env
+node_modules/
+dist/
+apk-server-hub
+archivos/
+*.apk
+# Los clientes son paquetes: el lockfile lo pone quien los usa.
+cliente/*/pubspec.lock
+.flutter-plugins
+.flutter-plugins-dependencies
+cliente/flutter/android/.gradle/
+cliente/flutter/android/local.properties

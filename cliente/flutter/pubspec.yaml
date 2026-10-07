@@ -1,0 +1,34 @@
+name: apk_server_flutter
+description: Auto-actualización de apps Flutter con apk-server — consulta, aviso por WebSocket, descarga e instalación sin preguntar en Android 12+.
+version: 0.1.0
+repository: https://github.com/pedromateodesarrollo/apk-server
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+  flutter: '>=3.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # El protocolo (consulta, WebSocket), en Dart puro, en este mismo repositorio.
+  apk_server:
+    path: ../dart
+  package_info_plus: '>=8.0.0 <10.0.0'
+  open_filex: '>=4.5.0 <5.0.0'
+  path_provider: ^2.1.0
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+
+# Plugin solo en Android: instala sin preguntar con PackageInstaller y dice qué
+# equipo es (android/…/ApkServerPlugin.kt). En otra plataforma el canal no
+# existe y se usa el instalador de siempre (open_filex).
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.chalonasoft.apk_server
+        pluginClass: ApkServerPlugin

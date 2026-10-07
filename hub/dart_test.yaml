@@ -1,0 +1,4 @@
+tags:
+  # Pruebas que necesitan Postgres (APK_PRUEBA_DATABASE_URL). Sin la variable
+  # se saltan solas.
+  bd:

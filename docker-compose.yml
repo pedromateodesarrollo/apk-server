@@ -1,0 +1,41 @@
+# Un hub funcionando en dos minutos: Postgres + el hub.
+#
+#   docker compose up -d
+#   docker compose exec hub ./apk-server-hub org --nombre "Mi empresa" --correo tu@correo.com
+#   → abre el enlace que imprime y pon tu clave (http://localhost:3130)
+#
+# Para producción: cambia APK_SECRETO_JWT (si no, cada reinicio cierra la
+# sesión de todos), pon APK_URL_PUBLICA con tu dominio y Postgres donde lo
+# tengas. Los APK viven en el volumen `apks`: respáldalo.
+
+services:
+  bd:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: apk
+      POSTGRES_PASSWORD: apk
+      POSTGRES_DB: apk_server
+    volumes:
+      - datos:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U apk']
+      interval: 5s
+      retries: 10
+
+  hub:
+    build: { context: ., dockerfile: hub/Dockerfile }
+    depends_on:
+      bd: { condition: service_healthy }
+    environment:
+      APK_DATABASE_URL: postgres://apk:apk@bd:5432/apk_server?sslmode=disable
+      APK_PUERTO: '3130'
+      APK_SECRETO_JWT: cambia-esto-en-produccion
+      APK_URL_PUBLICA: http://localhost:3130
+    volumes:
+      - apks:/var/lib/apk-server
+    ports:
+      - '3130:3130'
+
+volumes:
+  datos:
+  apks:
