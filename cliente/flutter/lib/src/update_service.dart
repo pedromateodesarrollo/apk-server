@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -19,6 +20,17 @@ enum UpdateFase { idle, verificando, descargando, listo, instalando, error }
 const kUpdateTextoListo =
     'Al instalar, la app se cierra. Ábrela de nuevo y ya estará en la versión '
     'nueva.';
+
+/// Las esperas por defecto entre un corte de la descarga y el siguiente
+/// intento ([UpdateService.esperasReintento]).
+const kUpdateEsperasReintento = [
+  Duration(seconds: 5),
+  Duration(seconds: 15),
+  Duration(seconds: 30),
+  Duration(minutes: 1),
+  Duration(minutes: 2),
+  Duration(minutes: 5),
+];
 
 /// Mientras Android instala sin preguntar.
 const kUpdateTextoInstalando =
@@ -60,10 +72,22 @@ class UpdateInstalador {
   UpdateInstalador({
     required this.appId,
     Future<void> Function(String apk)? abrirDialogo,
-  }) : _abrirDialogo = abrirDialogo ?? _abrirConOpenFilex;
+    Future<Directory> Function()? carpeta,
+    this.sinDatos = const Duration(seconds: 45),
+  })  : _abrirDialogo = abrirDialogo ?? _abrirConOpenFilex,
+        _carpeta = carpeta ?? getTemporaryDirectory;
 
   /// Prefijo del archivo en el temporal (`<appId>_<version>.apk`).
   final String appId;
+
+  /// Cuánto se espera sin que llegue un solo byte antes de dar la descarga por
+  /// cortada. Sin tope, una conexión que quedó colgada —la terminal cambió de
+  /// punto de acceso y el servidor ya la cerró— dejaba la descarga «bajando»
+  /// para siempre, y nada la volvía a arrancar.
+  final Duration sinDatos;
+
+  /// Dónde se baja el APK. Se cambia solo en las pruebas.
+  final Future<Directory> Function() _carpeta;
 
   final estado = ValueNotifier<UpdateEstado>(const UpdateEstado());
 
@@ -76,24 +100,29 @@ class UpdateInstalador {
   Future<String>? _descargaEnCurso;
 
   /// Baja [url] como [version]. Si esa versión ya se bajó en este proceso y el
-  /// archivo sigue ahí, la reusa. Reentrante: una segunda llamada mientras
-  /// baja se acopla a la descarga en vuelo (dos a la vez escribían el mismo
-  /// archivo y el progreso saltaba entre ambas).
+  /// archivo sigue ahí, la reusa. Si una descarga anterior de la misma URL se
+  /// cortó, sigue desde donde quedó. [bytes], si se sabe, es el tamaño que
+  /// tiene que tener: con otro, no se da por bajada.
+  ///
+  /// Reentrante: una segunda llamada mientras baja se acopla a la descarga en
+  /// vuelo (dos a la vez escribían el mismo archivo y el progreso saltaba
+  /// entre ambas).
   Future<String> descargar(
     String url, {
     required String version,
     bool requerido = false,
+    int bytes = 0,
   }) {
     final enCurso = _descargaEnCurso;
     if (enCurso != null) return enCurso;
-    final f = _descargar(url, version, requerido).whenComplete(() {
+    final f = _descargar(url, version, requerido, bytes).whenComplete(() {
       _descargaEnCurso = null;
     });
     _descargaEnCurso = f;
     return f;
   }
 
-  Future<String> _descargar(String url, String version, bool requerido) async {
+  Future<String> _descargar(String url, String version, bool requerido, int bytes) async {
     final previo = _apkListoVersion == version ? _apkListo : null;
     if (previo != null && await File(previo).exists()) {
       estado.value = UpdateEstado(
@@ -104,13 +133,19 @@ class UpdateInstalador {
       );
       return previo;
     }
+    // Al reintentar se conserva lo que ya se llevaba: la barra no vuelve a
+    // cero si la descarga va a seguir desde donde se cortó.
+    final antes = estado.value;
+    var progreso = antes.version == version ? antes.progreso : 0.0;
     estado.value = UpdateEstado(
       fase: UpdateFase.descargando,
+      progreso: progreso,
       version: version,
       requerido: requerido,
     );
     try {
-      final apk = await _bajar(url, version, (p) {
+      final apk = await _bajar(url, version, bytes, (p) {
+        progreso = p;
         estado.value = UpdateEstado(
           fase: UpdateFase.descargando,
           progreso: p,
@@ -128,7 +163,15 @@ class UpdateInstalador {
       );
       return apk;
     } catch (e) {
-      estado.value = UpdateEstado(fase: UpdateFase.error, error: e.toString());
+      // Con la versión y lo que se llevaba: quien muestra el estado puede
+      // decir QUÉ se cortó y por dónde iba, y el reintento sigue desde ahí.
+      estado.value = UpdateEstado(
+        fase: UpdateFase.error,
+        progreso: progreso,
+        version: version,
+        requerido: requerido,
+        error: e.toString(),
+      );
       rethrow;
     }
   }
@@ -136,45 +179,119 @@ class UpdateInstalador {
   /// Baja el APK a `<appId>_<version>.apk`. Escribe primero en un `.part` y
   /// renombra al terminar: así un archivo con ese nombre siempre es un APK
   /// completo, nunca uno a medias de una descarga interrumpida.
+  ///
+  /// Si la conexión se corta, el `.part` se queda y la próxima vez se pide
+  /// solo lo que falta (`Range`). En el almacén pasa: la terminal cambia de
+  /// punto de acceso a mitad de 60 MB (TC56, 2026-10-08, cortada en 26 MB tras
+  /// once minutos) y empezar de cero cada vez es no terminar nunca.
   Future<String> _bajar(
     String url,
     String version,
+    int bytes,
     void Function(double) onProgreso,
   ) async {
-    final dir = await getTemporaryDirectory();
+    var esperado = bytes;
+    final dir = await _carpeta();
     final nombre = '${appId}_$version.apk';
     final file = File('${dir.path}/$nombre');
-    final parcial = File('${file.path}.part');
-    final client = HttpClient();
+    // La huella de la URL va en el nombre: un pedazo solo se retoma con el
+    // MISMO archivo. Con otra URL (otra build con el mismo nombre de versión)
+    // sería pegarle el final de un APK al principio de otro.
+    final parcial = File('${file.path}.${_huella(url)}.part');
+    final uri = Uri.parse(url);
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 30);
+    var bien = false;
     try {
-      final req = await client.getUrl(Uri.parse(url));
-      final resp = await req.close();
-      if (resp.statusCode != 200) {
-        throw HttpException('HTTP ${resp.statusCode}', uri: Uri.parse(url));
+      var desde = await parcial.exists() ? await parcial.length() : 0;
+      if (esperado > 0 && desde > esperado) {
+        await parcial.delete();
+        desde = 0;
       }
-      final total = resp.contentLength;
-      final sink = parcial.openWrite();
-      var recibido = 0;
-      try {
-        await for (final chunk in resp) {
-          recibido += chunk.length;
-          sink.add(chunk);
-          if (total > 0) onProgreso(recibido / total);
+      if (esperado == 0 || desde < esperado) {
+        final req = await client.getUrl(uri).timeout(sinDatos);
+        if (desde > 0) req.headers.set(HttpHeaders.rangeHeader, 'bytes=$desde-');
+        final resp = await req.close().timeout(sinDatos);
+        var total = -1;
+        FileMode modo;
+        if (resp.statusCode == HttpStatus.partialContent && desde > 0) {
+          final rango = _rango(resp.headers.value(HttpHeaders.contentRangeHeader));
+          if (rango == null || rango.$1 != desde) {
+            // Contestó otro pedazo del que se pidió: no se arriesga a pegarlo.
+            await _descarta(resp);
+            await parcial.delete();
+            throw HttpException('El servidor mandó otro pedazo', uri: uri);
+          }
+          total = rango.$2;
+          modo = FileMode.append;
+        } else if (resp.statusCode == HttpStatus.ok) {
+          // Sin `Range` (o el servidor no lo atiende): desde el principio.
+          desde = 0;
+          total = resp.contentLength;
+          modo = FileMode.write;
+        } else {
+          await _descarta(resp);
+          // 416: el pedazo no cuadra con el archivo. Cualquier otro (404, 410,
+          // 5xx) no dice nada del pedazo: se queda para la próxima.
+          if (resp.statusCode == HttpStatus.requestedRangeNotSatisfiable &&
+              await parcial.exists()) {
+            await parcial.delete();
+          }
+          throw HttpException('HTTP ${resp.statusCode}', uri: uri);
         }
-        await sink.flush();
-      } finally {
-        await sink.close();
+        if (total <= 0) total = esperado;
+        var recibido = desde;
+        if (total > 0) onProgreso(recibido / total);
+        final sink = parcial.openWrite(mode: modo);
+        try {
+          await for (final chunk in resp.timeout(sinDatos)) {
+            recibido += chunk.length;
+            sink.add(chunk);
+            if (total > 0) onProgreso(recibido / total);
+          }
+          await sink.flush();
+        } finally {
+          await sink.close();
+        }
+        if (esperado <= 0) esperado = total;
+      }
+      final largo = await parcial.length();
+      if (esperado > 0 && largo != esperado) {
+        // De más es un pedazo que no era: fuera. De menos, se sigue después.
+        if (largo > esperado) await parcial.delete();
+        throw HttpException('Llegaron $largo de $esperado bytes', uri: uri);
       }
       if (await file.exists()) await file.delete();
       await parcial.rename(file.path);
+      bien = true;
       await _limpiarViejos(dir, nombre);
       return file.path;
-    } catch (_) {
-      if (await parcial.exists()) await parcial.delete();
-      rethrow;
     } finally {
-      client.close();
+      // Si se cortó, `force`: el socket colgado no se espera.
+      client.close(force: !bien);
     }
+  }
+
+  static Future<void> _descarta(HttpClientResponse r) async {
+    try {
+      await r.drain<void>().timeout(const Duration(seconds: 5));
+    } catch (_) {}
+  }
+
+  /// `bytes 100-199/1000` → (100, 1000). El total puede venir como `*`.
+  static (int, int)? _rango(String? cabecera) {
+    final m = RegExp(r'^bytes\s+(\d+)-(\d+)/(\d+|\*)$').firstMatch(cabecera?.trim() ?? '');
+    if (m == null) return null;
+    return (int.parse(m.group(1)!), int.tryParse(m.group(3)!) ?? -1);
+  }
+
+  /// FNV-1a de 32 bits, en hexadecimal: corto y estable entre procesos (el
+  /// `hashCode` de un `String` no promete serlo).
+  static String _huella(String s) {
+    var h = 0x811c9dc5;
+    for (final b in utf8.encode(s)) {
+      h = ((h ^ b) * 0x01000193) & 0xffffffff;
+    }
+    return h.toRadixString(16).padLeft(8, '0');
   }
 
   /// Borra APKs de versiones anteriores (y `.part` huérfanos) del temporal:
@@ -186,7 +303,7 @@ class UpdateInstalador {
         final n = f.uri.pathSegments.last;
         if (n == conservar) continue;
         if (!n.startsWith('${appId}_')) continue;
-        if (!n.endsWith('.apk') && !n.endsWith('.apk.part')) continue;
+        if (!n.endsWith('.apk') && !n.endsWith('.part')) continue;
         await f.delete();
       }
     } catch (_) {
@@ -317,7 +434,9 @@ class UpdateService {
     this.avisos = true,
     Duration minEntreChequeos = const Duration(minutes: 5),
     Duration intervaloSondeo = const Duration(hours: 1),
-  })  : instalador = UpdateInstalador(appId: app),
+    this.esperasReintento = kUpdateEsperasReintento,
+    Future<Directory> Function()? carpeta,
+  })  : instalador = UpdateInstalador(appId: app, carpeta: carpeta),
         _servidor = servidor,
         _app = app,
         _minEntreChequeos = minEntreChequeos,
@@ -348,6 +467,11 @@ class UpdateService {
   /// llega al instante y el panel ve el equipo conectado.
   final bool avisos;
 
+  /// Cuánto se espera para volver a intentar una descarga que se cortó: la
+  /// primera espera tras el primer corte, la segunda tras el segundo… y la
+  /// última, de ahí en adelante. Mientras la versión siga ahí no se abandona.
+  final List<Duration> esperasReintento;
+
   final UpdateInstalador instalador;
 
   /// El actualizador, una vez [iniciar]. Antes es null: necesita la clave de la
@@ -362,6 +486,16 @@ class UpdateService {
 
   /// Última versión para la que ya se lanzó el instalador en este proceso.
   String? _autoLanzadaVersion;
+
+  /// La versión que se está bajando y todavía no llegó entera. Un corte no la
+  /// suelta: queda aquí hasta que se baja, el hub dice que ya no hay nada o
+  /// sale otra. Antes, la descarga que se cortaba se quedaba en `error` y
+  /// nada la volvía a arrancar: el sondeo y los avisos solo entregan una vez
+  /// cada build, y esa ya se había entregado.
+  VersionDisponible? _pendiente;
+  Timer? _reintento;
+  int _fallos = 0;
+  StreamSubscription<bool>? _subConexion;
 
   static const _canal = MethodChannel('apk_server');
 
@@ -418,11 +552,22 @@ class UpdateService {
   Future<void> iniciar() async {
     final a = await _prepara();
     a.iniciar();
-    if (avisos) a.conectarAvisos();
+    if (avisos) {
+      a.conectarAvisos();
+      // El socket que reconecta es la red que volvió: la descarga que se
+      // cortó sigue ya, sin esperar su turno.
+      _subConexion ??= a.avisos?.estado.listen((conectado) {
+        if (conectado) _reintentarYa();
+      });
+    }
+    if (_pendiente != null) _programarReintento();
   }
 
-  /// Para el sondeo y cierra el WebSocket.
+  /// Para el sondeo, cierra el WebSocket y deja de reintentar.
   Future<void> detener() async {
+    _cancelarReintento();
+    await _subConexion?.cancel();
+    _subConexion = null;
     final a = _actualizador;
     if (a == null) return;
     a.detener();
@@ -431,6 +576,7 @@ class UpdateService {
 
   /// Para colgarlo de «la app volvió al frente»: reconecta el WebSocket si
   /// estaba esperando y pregunta (respetando el freno de [minEntreChequeos]).
+  /// Si había una descarga cortada, sigue ya.
   Future<void> alVolverAlFrente() async {
     _actualizador?.avisos?.reconectarAhora();
     await verificarYDescargar();
@@ -442,16 +588,33 @@ class UpdateService {
     final prev = estado.value;
     if (prev.fase == UpdateFase.descargando) return;
     if (prev.fase == UpdateFase.instalando) return; // la app se va a cerrar
-    estado.value = UpdateEstado(
-      fase: UpdateFase.verificando,
-      version: prev.version,
-      requerido: prev.requerido,
-      apkPath: prev.apkPath,
-    );
+    // Con una descarga cortada a la espera, la tarjeta sigue diciendo eso
+    // mientras se pregunta: si no, parpadearía en cada reintento.
+    if (_pendiente == null) {
+      estado.value = UpdateEstado(
+        fase: UpdateFase.verificando,
+        version: prev.version,
+        requerido: prev.requerido,
+        apkPath: prev.apkPath,
+      );
+    }
     final a = await _prepara();
     final v = await a.verificar(forzar: forzar);
     if (v == null) {
       final err = a.ultimoError;
+      if (err != null && _pendiente != null) {
+        // Sin red para preguntar: la versión sigue pendiente y se reintenta.
+        if (estado.value.fase == UpdateFase.verificando) estado.value = prev;
+        _programarReintento();
+        return;
+      }
+      if (err == null) {
+        // El hub dice que no hay nada (se retiró, o ya se instaló): no queda
+        // nada que reintentar.
+        _pendiente = null;
+        _fallos = 0;
+        _cancelarReintento();
+      }
       // Al día (o sin poder saberlo): si ya había un APK listo, se conserva.
       if (prev.fase == UpdateFase.listo && prev.apkPath != null) {
         estado.value = prev;
@@ -463,7 +626,8 @@ class UpdateService {
       return;
     }
     // Si [disponible] ya la emitió, la descarga va en camino; si era una
-    // versión ya emitida (misma build), bajarla de nuevo reusa el archivo.
+    // versión ya emitida (misma build), bajarla de nuevo reusa el archivo o
+    // sigue desde donde se cortó.
     await _descargar(v);
   }
 
@@ -473,12 +637,52 @@ class UpdateService {
   }
 
   Future<void> _descargar(VersionDisponible v) async {
+    _pendiente = v;
+    _cancelarReintento();
     try {
-      await instalador.descargar(v.url, version: v.version, requerido: v.requerido);
+      await instalador.descargar(
+        v.url,
+        version: v.version,
+        requerido: v.requerido,
+        bytes: v.bytes,
+      );
     } catch (_) {
-      return; // el estado ya quedó en error
+      // El estado ya quedó en error, con la versión y por dónde iba. Si
+      // mientras tanto salió otra, esa manda.
+      if (identical(_pendiente, v)) _programarReintento();
+      return;
+    }
+    if (identical(_pendiente, v)) {
+      _pendiente = null;
+      _fallos = 0;
     }
     await instalarSiListo();
+  }
+
+  /// Vuelve a preguntar y a bajar dentro de un rato, cada vez más espaciado
+  /// ([esperasReintento]). Preguntar primero es lo que se entera de que la
+  /// versión se retiró o de que salió otra.
+  void _programarReintento() {
+    if (_pendiente == null || (_reintento?.isActive ?? false)) return;
+    if (esperasReintento.isEmpty) return;
+    final espera = esperasReintento[min(_fallos, esperasReintento.length - 1)];
+    _fallos++;
+    _reintento = Timer(espera, () {
+      _reintento = null;
+      unawaited(verificarYDescargar(forzar: true));
+    });
+  }
+
+  /// Si una descarga cortada espera su turno, que vaya ya.
+  void _reintentarYa() {
+    if (_pendiente == null || _reintento == null) return;
+    _cancelarReintento();
+    unawaited(verificarYDescargar(forzar: true));
+  }
+
+  void _cancelarReintento() {
+    _reintento?.cancel();
+    _reintento = null;
   }
 
   /// Si hay un APK listo, [autoInstalar] está activo, [puedeInstalar] lo
@@ -507,6 +711,8 @@ class UpdateService {
   }
 
   Future<void> dispose() async {
+    _cancelarReintento();
+    await _subConexion?.cancel();
     await _sub?.cancel();
     await _actualizador?.dispose();
     instalador.dispose();

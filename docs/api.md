@@ -30,7 +30,7 @@ La ficha de una app, la consulta de versión, la descarga del APK, `/install/<ap
 
 ### Flutter: actualizarse solo
 
-El paquete `apk_server_flutter` (en `cliente/flutter`) consulta, se entera por WebSocket, baja el APK con reanudación e instala. En Android 12+, si la persona ya permitió instalar desde la app, instala sin diálogo (la app se cierra y queda en la versión nueva). Cada consulta lleva la clave de la instalación, el ANDROID_ID, el modelo y lo que la app ponga en `contexto`: es lo que se ve en la pestaña Equipos.
+El paquete `apk_server_flutter` (en `cliente/flutter`) consulta, se entera por WebSocket, baja el APK con reanudación e instala. Si la descarga se corta o se queda 45 s sin recibir nada, no se abandona: vuelve a preguntar y sigue desde donde quedó (`Range`) a los 5 s, 15 s, 30 s, 1 min, 2 min y después cada 5 min, o en cuanto el WebSocket reconecta; `UpdateTarjeta` lo dice mientras tanto. En Android 12+, si la persona ya permitió instalar desde la app, instala sin diálogo (la app se cierra y queda en la versión nueva). Cada consulta lleva la clave de la instalación, el ANDROID_ID, el modelo y lo que la app ponga en `contexto`: es lo que se ve en la pestaña Equipos.
 
 ```dart
 # pubspec.yaml

@@ -2,6 +2,47 @@
 
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## 0.1.2 — 2026-10-08
+
+### Hub
+
+* El WebSocket de avisos va sin compresión. dart:io contestaba
+  `permessage-deflate` con `client_max_window_bits` aunque el cliente no lo
+  hubiera pedido, y OkHttp (el socket de una app Android nativa) cortaba con
+  1010: esas apps nunca quedaban conectadas y solo se enteraban de una
+  versión nueva por el sondeo de cada hora.
+* Sirve `.jpg` como `image/jpeg`.
+
+### Sitio
+
+* La portada y el README explican en simple qué es y cómo funciona; lo
+  técnico queda al final. Resumen en inglés al principio del README.
+* El enlace de una invitación ya usada lleva a entrar al panel, y el de
+  cambiar la clave reconoce a quien ya tiene la sesión abierta.
+* El botón «Panel» de la barra ya no sale gris y la documentación no queda
+  pegada al borde en el teléfono.
+
+### Clientes
+
+* `apk_server_flutter`: una descarga que se cortaba se quedaba en error y nada
+  la volvía a arrancar hasta reabrir la app —el sondeo y los avisos entregan
+  cada build una sola vez, y esa ya se había entregado—. Visto el 2026-10-08
+  con una versión obligatoria del WMS: el aviso llegó y las dos terminales
+  empezaron a bajar, pero a una la cortó un cambio de punto de acceso en 26 de
+  61 MB y ahí se quedó, sin que la tarjeta dijera nada. Ahora:
+  * La descarga sigue desde donde se cortó (`Range`; el hub ya lo atendía). El
+    pedazo lleva la huella de la URL y solo se retoma con el mismo archivo; al
+    final se comprueba el tamaño que dijo el hub.
+  * 45 s sin recibir nada es un corte (`UpdateInstalador.sinDatos`): antes una
+    conexión colgada dejaba la descarga «bajando» para siempre.
+  * `UpdateService` reintenta solo, volviendo a preguntar (así se entera de
+    que la versión se retiró o de que salió otra), a los 5 s, 15 s, 30 s,
+    1 min, 2 min y después cada 5 min (`esperasReintento`), y en cuanto el
+    WebSocket reconecta.
+  * El estado de error de una descarga lleva la versión y el progreso, y
+    `UpdateTarjeta` lo enseña: «Se cortó la descarga… Sigue sola», con
+    «Reintentar ahora». Probado en una Zebra TC56 (Android 8.1).
+
 ## 0.1.1 — 2026-10-07
 
 ### Hub
