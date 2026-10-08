@@ -475,6 +475,7 @@ class Servidor {
     if (p.endsWith('.json')) return ContentType.json;
     if (p.endsWith('.svg')) return ContentType('image', 'svg+xml');
     if (p.endsWith('.png')) return ContentType('image', 'png');
+    if (p.endsWith('.jpg') || p.endsWith('.jpeg')) return ContentType('image', 'jpeg');
     if (p.endsWith('.ico')) return ContentType('image', 'x-icon');
     if (p.endsWith('.webp')) return ContentType('image', 'webp');
     if (p.endsWith('.woff2')) return ContentType('font', 'woff2');

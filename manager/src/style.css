@@ -315,3 +315,7 @@ input:focus, select:focus { outline: 2px solid var(--marca); outline-offset: -1p
 @media (max-width: 780px) {
   .docs { padding-left: 16px; padding-right: 16px; gap: 18px; }
 }
+
+/* Capturas en la portada. */
+.captura { display: block; max-width: 100%; margin: 28px auto 0; border: 1px solid var(--borde); border-radius: var(--radio); box-shadow: 0 8px 30px rgba(15, 23, 42, .08); }
+.captura-celular { width: 300px; }

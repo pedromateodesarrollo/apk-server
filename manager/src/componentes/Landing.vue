@@ -15,9 +15,9 @@ const diagrama = `  Tu script de publicación         Hub                     Eq
       <span class="etiqueta">Código abierto · Apache-2.0</span>
       <h1>Tus apps Android, al día solas.</h1>
       <p class="lema">
-        Publicas una versión con un <code>curl</code> y cada equipo la baja y la
-        instala. Sin Play Store, sin pasar el APK por WhatsApp y sabiendo qué
-        build tiene cada terminal.
+        Para las apps propias de tu empresa: subes la versión nueva una vez y
+        todos los equipos se actualizan solos. Sin Play Store, sin mandar el
+        archivo por WhatsApp, y sabiendo qué versión tiene cada uno.
       </p>
       <div class="acciones">
         <a href="#/docs" class="boton">Ver el API</a>
@@ -28,7 +28,22 @@ const diagrama = `  Tu script de publicación         Hub                     Eq
 
   <section class="seccion">
     <div class="contenedor">
-      <div class="diagrama">{{ diagrama }}</div>
+      <h2>Cómo funciona</h2>
+      <div class="pasos" style="margin-top: 22px">
+        <div class="paso">
+          <h3>Subes la versión nueva</h3>
+          <p class="apagado">Desde el panel o con un comando, una sola vez.</p>
+        </div>
+        <div class="paso">
+          <h3>Los equipos se actualizan solos</h3>
+          <p class="apagado">Se enteran en el momento, la bajan y la instalan (desde Android 12, sin preguntarle a nadie). El que estaba apagado se entera al prender.</p>
+        </div>
+        <div class="paso">
+          <h3>Un equipo nuevo, con un enlace</h3>
+          <p class="apagado">Cada app tiene su página con un QR. Se abre en el teléfono, se toca «Descargar e instalar» y desde ahí se mantiene al día solo.</p>
+        </div>
+      </div>
+      <img class="captura captura-celular" src="/img/instalar.jpg" alt="La página para instalar una app en un equipo nuevo: el botón, el QR y los pasos" />
     </div>
   </section>
 
@@ -42,15 +57,15 @@ const diagrama = `  Tu script de publicación         Hub                     Eq
         </div>
         <div class="tarjeta">
           <h3>Se entera al momento</h3>
-          <p>Cada app abre un WebSocket con el hub. Al publicar, todas se enteran en el acto; el sondeo cada hora queda de respaldo.</p>
+          <p>Al publicar, todos los equipos se enteran en el acto. Y por si acaso, cada uno pregunta cada hora.</p>
         </div>
         <div class="tarjeta">
           <h3>No te deja publicar mal</h3>
-          <p>El hub lee el APK: si el <code>applicationId</code>, el <code>versionCode</code> o la llave de firma no cuadran, lo rechaza antes de que llegue a un teléfono.</p>
+          <p>apk-server abre el archivo antes de aceptarlo: si es de otra app, trae otro número de versión o viene firmado con otra llave, lo rechaza antes de que llegue a un teléfono.</p>
         </div>
         <div class="tarjeta">
           <h3>Sabes qué tiene cada equipo</h3>
-          <p>Qué build, qué modelo, qué Android, cuándo se vio por última vez y si está conectado ahora. Le pones nombre a cada terminal.</p>
+          <p>Qué versión, qué modelo, cuándo se vio por última vez y si está conectado ahora. Le pones nombre a cada terminal.</p>
         </div>
         <div class="tarjeta">
           <h3>Obligatoria cuando hace falta</h3>
@@ -66,7 +81,7 @@ const diagrama = `  Tu script de publicación         Hub                     Eq
 
   <section class="seccion">
     <div class="contenedor">
-      <h2>En tres pasos</h2>
+      <h2>Para montarlo</h2>
       <div class="pasos" style="margin-top: 22px">
         <div class="paso">
           <h3>Levanta el hub</h3>
@@ -83,6 +98,13 @@ const diagrama = `  Tu script de publicación         Hub                     Eq
           <p class="apagado">El paquete Flutter pregunta, baja e instala (sin diálogo en Android 12+). Ver <a href="#/docs#clientes">clientes</a>.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section class="seccion">
+    <div class="contenedor">
+      <h2>Por dentro</h2>
+      <div class="diagrama" style="margin-top: 18px">{{ diagrama }}</div>
     </div>
   </section>
 </template>
