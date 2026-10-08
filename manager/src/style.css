@@ -300,3 +300,18 @@ input:focus, select:focus { outline: 2px solid var(--marca); outline-offset: -1p
 .instalar .qr svg { width: 100%; height: 100%; display: block; }
 .instalar .notas { text-align: left; white-space: pre-wrap; margin-top: 24px; }
 .instalar ol { text-align: left; color: var(--texto-2); font-size: 15px; padding-left: 20px; }
+
+/* El botón de la barra («Panel») va en blanco: `.barra nav a` le pisaba el color. */
+.barra nav a.boton, .barra nav a.boton:hover { color: #fff; }
+/* Sin esto, una tabla o un bloque de código ancho estira la documentación y
+   en el teléfono la página se sale de la pantalla. */
+.docs > main { min-width: 0; }
+@media (max-width: 520px) {
+  .barra .contenedor { gap: 12px; padding: 0 14px; }
+  .barra nav { gap: 12px; }
+}
+/* `.docs` le pisa el margen lateral a `.contenedor` (el mismo elemento): en el
+   teléfono el texto quedaba pegado al borde. */
+@media (max-width: 780px) {
+  .docs { padding-left: 16px; padding-right: 16px; gap: 18px; }
+}

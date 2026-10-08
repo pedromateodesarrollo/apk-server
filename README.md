@@ -1,10 +1,66 @@
 # apk-server
 
-Tus apps Android, al día solas, sin Play Store.
+**Para repartir las apps Android de tu empresa y que se actualicen solas en
+todos los equipos, sin pasar por Google Play.**
 
-Publicas una versión con un `curl` y cada equipo se entera al momento, la baja
-y la instala —en Android 12+, sin diálogo—. Y desde el panel sabes qué build
-tiene cada terminal, qué modelo es y cuándo se vio por última vez.
+Software libre y gratis (licencia Apache 2.0): lo instalas en tu propio servidor.
+
+## ¿Para qué sirve?
+
+Tienes una app propia —la del almacén, la de los vendedores, la de la tienda— y
+está instalada en 30 teléfonos. Cada versión nueva es un lío:
+
+* hay que mandar el archivo por WhatsApp o ir equipo por equipo;
+* la mitad se queda con la versión vieja y nadie sabe cuáles;
+* alguien instala el archivo equivocado, o uno viejo que tenía guardado.
+
+Con apk-server **subes la versión nueva una vez y todos los equipos se
+actualizan solos.** Y en el panel ves qué versión tiene cada uno.
+
+## ¿Cómo funciona?
+
+1. **Subes la versión nueva** desde el panel o con un comando.
+2. **Los equipos se enteran en el momento**, la bajan y la instalan solos (desde
+   Android 12, sin preguntarle a nadie). El que estaba apagado se entera al
+   prender.
+3. **Para un equipo nuevo**, abre la página de la app (o escanea su QR) y toca
+   «Descargar e instalar». Desde ahí se mantiene al día solo.
+
+<img src="docs/img/instalar.jpg" alt="La página para instalar una app en un equipo nuevo: el botón de descargar, el QR y los pasos" width="300">
+
+*La página de una app: el enlace o el QR que se le pasa a quien la va a
+instalar.*
+
+## ¿Qué ves en el panel?
+
+* Tus apps y todas sus versiones.
+* **Cada equipo que la tiene instalada**: qué versión tiene, su modelo, cuándo
+  se vio por última vez y si está conectado ahora. Y lo que tu app quiera contar
+  (en qué empresa está, quién tiene la sesión).
+* Marcar una versión como **obligatoria** (todos tienen que pasar a esa) o
+  **retirarla** si salió mala.
+
+## Lo que te cuida
+
+* **Que no subas el archivo equivocado.** apk-server abre el APK antes de
+  aceptarlo: si es de otra app, si tiene un número de versión que no es el que
+  dijiste o si está firmado con otra llave, lo rechaza ahí mismo, y no cuando el
+  teléfono se niega a instalarlo.
+* **Que la versión llegue.** Cada app queda escuchando al servidor; al
+  publicar, se enteran todas al momento. Y por si acaso, cada una pregunta cada
+  hora.
+
+## ¿Cómo lo uso?
+
+* **Monta tu servidor** con Docker en dos comandos (abajo).
+* **En tu app Flutter**, el paquete `apk_server_flutter`: unas líneas en `main`
+  y tu app se actualiza sola (abajo).
+* **Con otra tecnología**, la página de cada app sirve para instalar a mano y
+  todo lo demás se hace por API: [docs/api.md](docs/api.md).
+
+---
+
+## Para quien lo monta
 
 ```
   Tu script de publicación          Hub                     Equipos
@@ -17,26 +73,7 @@ tiene cada terminal, qué modelo es y cuándo se vio por última vez.
                                            y cuándo se vio por última vez
 ```
 
-## Qué resuelve
-
-* **Apps que no van a una tienda.** Las terminales de un almacén, la app de un
-  cliente, una herramienta interna. Se reparten desde tu servidor, con un
-  enlace y un código QR para el primer equipo.
-* **Que la versión nueva llegue.** Cada app abre un WebSocket con el hub; al
-  publicar, todas se enteran en el acto. El sondeo cada hora queda de respaldo
-  para la que estaba apagada.
-* **Publicar mal.** El hub abre el APK y lee el `applicationId`, el
-  `versionCode` y el certificado de firma. Un APK de otro sabor, con un número
-  que no es el que dijiste o firmado con otra llave se rechaza ahí, no cuando
-  Android se niega a instalarlo en el teléfono.
-* **No saber qué hay instalado.** Cada consulta deja anotado el equipo: build,
-  modelo, versión de Android, ANDROID_ID y lo que la app quiera contar (la
-  empresa, quién tiene la sesión). Le pones nombre a cada terminal y ves cuáles
-  están conectadas ahora.
-* **La que tiene que llegar sí o sí.** Una versión obligatoria obliga a todo el
-  que esté por debajo, aunque después salgan otras opcionales.
-
-## Publicar
+### Publicar
 
 ```bash
 curl -X POST "https://tu-hub/v1/apps/inventario/versiones?notas=Arreglos%20de%20la%20toma" \
@@ -55,7 +92,7 @@ APK_SERVER_LLAVE=cak_... herramientas/apk-publicar \
 Repetir la misma publicación no es un error: un script que se cortó a la mitad
 se puede volver a correr.
 
-## Que la app se actualice sola
+### Que la app se actualice sola
 
 ```yaml
 # pubspec.yaml
@@ -85,7 +122,7 @@ Android no la vuelve a abrir: cuándo instalar lo decide la app (`autoInstalar`,
 
 Para Dart sin Flutter está `cliente/dart` (`apk_server`): solo el protocolo.
 
-## Levantar tu propio hub
+### Levantar tu propio hub
 
 ```bash
 docker compose up -d
@@ -139,7 +176,7 @@ Con nginx delante: `hub/nginx-hub.conf` (límites de peticiones, subidas
 grandes sin pasar por un temporal, el WebSocket). Con systemd:
 `hub/deploy-hub.sh`.
 
-## Cómo está armado
+### Cómo está armado
 
 | Carpeta | Qué hay |
 |---|---|
