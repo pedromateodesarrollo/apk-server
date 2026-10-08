@@ -78,7 +78,11 @@ class Avisos {
 
     final WebSocket ws;
     try {
-      ws = await WebSocketTransformer.upgrade(pet);
+      // Sin compresión. dart:io contesta `permessage-deflate` con
+      // `client_max_window_bits` aunque el cliente no lo haya ofrecido, y OkHttp
+      // (el WebSocket de una app Android nativa, como trackme) corta con 1010:
+      // esas apps nunca quedaban conectadas. Los avisos son de cien bytes.
+      ws = await WebSocketTransformer.upgrade(pet, compression: CompressionOptions.compressionOff);
     } catch (e) {
       log.aviso('ws', 'upgrade falló: $e');
       return true;
