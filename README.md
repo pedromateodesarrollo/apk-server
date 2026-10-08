@@ -5,6 +5,15 @@ todos los equipos, sin pasar por Google Play.**
 
 Software libre y gratis (licencia Apache 2.0): lo instalas en tu propio servidor.
 
+> **In English:** apk-server is a free, self-hosted way to distribute your
+> company's own Android apps and keep them up to date on every device, without
+> Google Play. You upload a new version once (from the panel or with a single
+> `curl`) and every device hears about it at once, downloads it and installs it,
+> silently on Android 12 and later. Each app gets an install page with a QR code
+> for new devices, and the panel shows which version every device is running. A
+> Flutter package adds self-updating to your app in a few lines. The rest of this
+> documentation is in Spanish.
+
 ## ¿Para qué sirve?
 
 Tienes una app propia —la del almacén, la de los vendedores, la de la tienda— y
