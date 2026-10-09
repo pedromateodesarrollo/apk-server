@@ -25,7 +25,7 @@ async function carga() {
 async function invita() {
   try {
     const u = await api.post('/v1/usuarios', { correo: correo.value, nombre: nombre.value, rol: rol.value })
-    enlace.value = { correo: u.correo, enlace: u.enlace }
+    enlace.value = { correo: u.correo, enlace: u.enlace, envio: u.envio }
     correo.value = ''
     nombre.value = ''
     await carga()
@@ -37,7 +37,7 @@ async function invita() {
 async function reinvita(u) {
   try {
     const d = await api.post(`/v1/usuarios/${u.id}/invitacion`)
-    enlace.value = { correo: u.correo, enlace: d.enlace }
+    enlace.value = { correo: u.correo, enlace: d.enlace, envio: d.envio }
     await carga()
   } catch (e) {
     error.value = e.message
@@ -70,8 +70,21 @@ onMounted(carga)
   <p v-if="error" class="aviso">{{ error }}</p>
 
   <div v-if="enlace" class="exito">
-    Enlace para <strong>{{ enlace.correo }}</strong>. Mándaselo por donde quieras:
-    con él pone su propia clave. Sirve una vez y vence en 7 días.
+    <!-- Con correo de salida (Organización), el enlace ya le llegó; se enseña
+         igual, por si no le llega o hay que dárselo en mano. -->
+    <template v-if="enlace.envio?.enviado">
+      Le mandamos el enlace por correo a <strong>{{ enlace.correo }}</strong>. Por si
+      no le llega, aquí está: sirve una vez y vence en 7 días.
+    </template>
+    <template v-else>
+      <span v-if="enlace.envio" class="aviso" style="display: block; margin-bottom: 8px">
+        El correo no salió ({{ enlace.envio.detalle || enlace.envio.error }}). Revisa el
+        correo de salida en <a href="#/panel/organizacion">Organización</a>; mientras,
+        compártele el enlace.
+      </span>
+      Enlace para <strong>{{ enlace.correo }}</strong>. Mándaselo por donde quieras:
+      con él pone su propia clave. Sirve una vez y vence en 7 días.
+    </template>
     <div class="secreto">{{ enlace.enlace }}</div>
     <div style="display: flex; gap: 8px; margin-top: 10px">
       <button class="boton chico" @click="copia">{{ copiado ? 'Copiado' : 'Copiar' }}</button>
@@ -82,8 +95,9 @@ onMounted(carga)
   <div class="tarjeta" style="margin-bottom: 20px">
     <h3>Invitar a alguien</h3>
     <p class="apagado">
-      El hub no manda correos: te da un enlace y tú se lo pasas. Tú nunca ves
-      su clave.
+      Si la organización tiene correo de salida (en
+      <a href="#/panel/organizacion">Organización</a>), le llega el enlace por
+      correo; si no, te lo da a ti y tú se lo pasas. Tú nunca ves su clave.
     </p>
     <div style="display: grid; gap: 0 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); max-width: 680px">
       <div><label>Correo</label><input v-model="correo" type="email" /></div>
@@ -96,7 +110,7 @@ onMounted(carga)
         </select>
       </div>
     </div>
-    <button class="boton" style="margin-top: 14px" :disabled="!correo" @click="invita">Crear enlace</button>
+    <button class="boton" style="margin-top: 14px" :disabled="!correo" @click="invita">Invitar</button>
   </div>
 
   <table class="tarjetas">

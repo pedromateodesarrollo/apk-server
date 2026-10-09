@@ -387,7 +387,7 @@ class Servidor {
         ..add('vary', 'Origin');
     }
     pet.response.headers
-      ..set('access-control-allow-methods', 'GET,POST,PATCH,DELETE,OPTIONS')
+      ..set('access-control-allow-methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS')
       ..set('access-control-allow-headers', 'authorization,content-type,x-api-key')
       ..set('access-control-max-age', '86400');
   }

@@ -17,7 +17,12 @@ const enviando = ref(false)
 const yo = ref(null)
 const aunAsi = ref(false)
 
+// El enlace llega por una invitación o por «¿Olvidaste tu clave?»; si venció,
+// se dice cómo pedir otro, y la entrada solo lo ofrece con correo de salida.
+const puedeRecuperar = ref(false)
+
 onMounted(async () => {
+  api.get('/salud').then((s) => (puedeRecuperar.value = !!s.recuperar)).catch(() => {})
   if (sesion.token) {
     try { yo.value = await api.get('/v1/yo') } catch { /* sesión vencida: da igual */ }
   }
@@ -84,7 +89,9 @@ async function activa() {
       <p class="aviso">{{ error || 'Este enlace ya venció.' }}</p>
       <p class="apagado">
         Si ya pusiste tu clave con él, entra con tu correo y esa clave. Si no,
-        pídele otro enlace a quien te invitó.
+        pide otro:
+        <template v-if="puedeRecuperar">en la entrada, «¿Olvidaste tu clave?», o a quien administra este hub.</template>
+        <template v-else>a quien administra este hub.</template>
       </p>
       <a class="boton" href="/#/panel" style="margin-top: 8px">Entrar al panel</a>
     </template>

@@ -2,6 +2,40 @@
 
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## Sin publicar
+
+Correo de salida por organización y, con él, «¿Olvidaste tu clave?».
+
+### Hub
+
+* **Correo de salida de cada organización** (migración `0002_correo.sql`):
+  `GET`/`PUT /v1/org/correo`, solo quien administra; la clave no vuelve nunca y
+  guardar sin ella deja la que estaba; `{"quitar": true}` lo borra.
+  `POST /v1/org/correo/prueba` le manda uno de prueba a quien lo pide. El
+  cliente SMTP es propio, con `dart:io` (TLS 465, STARTTLS 587), sin
+  dependencias nuevas: el mismo de device-track.
+* **Las invitaciones salen por ese correo.** `POST /v1/usuarios` y
+  `POST /v1/usuarios/:id/invitacion` traen `envio`: `null` sin correo de
+  salida, `{enviado: true, para}` o `{enviado: false, error, detalle}`. El
+  enlace se devuelve igual. A quien ya entraba, el correo es de «clave nueva»,
+  no de invitación.
+* **«¿Olvidaste tu clave?»**: `POST /v1/auth/recuperar {correo}` manda, por el
+  correo de salida de la organización de esa persona, el mismo enlace de la
+  invitación, de un solo uso y que vence en una hora. Contesta siempre
+  `{"pedido": true}`, exista o no la cuenta, y no espera al correo. Frenos: 5
+  por minuto por IP y 3 por hora por correo.
+* `GET /salud` suma `recuperar`: si alguna organización tiene correo de salida.
+* El enlace vencido (`POST /v1/auth/activar`) dice cómo pedir otro.
+* CORS acepta `PUT` (el icono de una app y el correo de salida).
+
+### Panel
+
+* «¿Olvidaste tu clave?» en la entrada, solo cuando el hub puede mandar el
+  enlace.
+* Pantalla **Organización** (quien administra), con el correo de salida y su
+  prueba.
+* Usuarios dice si el enlace salió por correo o si hay que compartirlo a mano.
+
 ## 0.2.0 — 2026-10-09
 
 Una sola biblioteca de actualización para cualquier app Android, y el proyecto

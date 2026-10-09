@@ -20,7 +20,7 @@ curl -H "authorization: Bearer cak_ab12cd34_..." https://TU-HUB/v1/apps
 
 ### Sesión de persona
 
-La del panel. `POST /v1/auth/login` devuelve un JWT que dura siete días y viaja en la misma cabecera. A las personas se las invita: el administrador genera un enlace y la persona pone su propia clave.
+La del panel. `POST /v1/auth/login` devuelve un JWT que dura siete días y viaja en la misma cabecera. A las personas se las invita: el administrador genera un enlace y la persona pone su propia clave. Si la organización tiene correo de salida, el enlace le llega por correo, y quien olvidó su clave pide otro desde la entrada («¿Olvidaste tu clave?»).
 
 ### Sin credencial
 
@@ -285,23 +285,47 @@ Olvida un equipo (si vuelve a consultar, reaparece).
 
 Entra con `correo` y `clave`. Devuelve `{token, usuario}`.
 
+### `GET /salud`
+
+*Acceso: público*
+
+Si el hub y su base contestan. `recuperar` es verdadero si alguna organización tiene correo de salida: el panel lo usa para ofrecer «¿Olvidaste tu clave?» en la entrada.
+
+```json
+{ "ok": true, "servicio": "apk-server", "registro": "cerrado", "recuperar": true }
+```
+
+### `POST /v1/auth/recuperar`
+
+*Acceso: público*
+
+«¿Olvidaste tu clave?». Con el `correo`, si tiene cuenta y su organización tiene correo de salida, le manda por ese correo un enlace para poner una clave nueva (el mismo de la invitación, de un solo uso, que vence en 1 hora; el enlace anterior deja de servir). Contesta siempre `{"pedido": true}`, exista o no el correo: no sirve para averiguar quién tiene cuenta. Frenos: 5 por minuto por IP y 3 por hora por correo (`429`).
+
+```json
+{ "pedido": true }
+```
+
 ### `POST /v1/usuarios`
 
 *Acceso: admin*
 
-Invita a una persona (`correo`, `nombre`, `rol`: `admin` o `editor`). Devuelve `enlace`, de un solo uso y por 7 días, para que ponga su clave. El hub no manda correos.
+Invita a una persona (`correo`, `nombre`, `rol`: `admin` o `editor`). Devuelve `enlace`, de un solo uso y por 7 días, para que ponga su clave. Si la organización tiene correo de salida, además se lo manda; `envio` dice qué pasó: `null` sin correo de salida (el enlace se comparte a mano), `{enviado: true, para}` o `{enviado: false, error, detalle}` (el enlace sirve igual).
+
+```json
+{ "id": 7, "correo": "ana@ejemplo.com", …, "enlace": "https://TU-HUB/#/activar/…", "envio": { "enviado": true, "para": "ana@ejemplo.com" } }
+```
 
 ### `POST /v1/usuarios/:id/invitacion`
 
 *Acceso: admin*
 
-Otro enlace para la misma persona (el anterior deja de servir). También sirve para que ponga una clave nueva.
+Otro enlace para la misma persona (el anterior deja de servir). También sirve para que ponga una clave nueva. Devuelve `enlace` y `envio`, como al invitar.
 
 ### `POST /v1/auth/activar`
 
 *Acceso: público*
 
-Con el `token` del enlace y la `clave` nueva. Devuelve la sesión.
+Con el `token` del enlace (de la invitación o de «¿Olvidaste tu clave?») y la `clave` nueva. Devuelve la sesión. Si el enlace venció o ya se usó, `410 invitacion_vencida`.
 
 ### `POST /v1/llaves`
 
@@ -314,6 +338,44 @@ Crea una llave (`nombre`, `permisos`, `apps`). La llave completa se ve solo en e
 *Acceso: admin*
 
 Revoca una llave. La fila se queda: explica quién publicó qué.
+
+## Organización
+
+### `GET /v1/org/correo`
+
+*Acceso: admin*
+
+El correo de salida de la organización, sin la clave: `clave_puesta` dice si hay una. Con él salen las invitaciones y los enlaces de «¿Olvidaste tu clave?».
+
+```json
+{ "host": "smtp.gmail.com", "puerto": 587, "seguridad": "starttls", "remitente": "avisos@ejemplo.com", "usuario": "avisos@ejemplo.com", "nombre": "apk-server de Ejemplo", "clave_puesta": true, "configurado": true }
+```
+
+### `PUT /v1/org/correo`
+
+*Acceso: admin*
+
+Guarda el correo de salida. La clave no vuelve nunca; si no viene, o viene vacía, se queda la que estaba. `{"quitar": true}` lo borra. Devuelve lo mismo que el `GET`.
+
+| Campo | Tipo | Obligatorio | |
+|---|---|---|---|
+| `host` | texto | sí | El servidor SMTP (`smtp.gmail.com`). |
+| `puerto` | entero | sí | Suele ser 587 (STARTTLS) o 465 (TLS). |
+| `seguridad` | texto | no | `starttls` (por defecto), `tls` o `ninguna` (solo en una red propia). |
+| `remitente` | texto | sí | La dirección del «De:». |
+| `usuario` | texto | no | Para autenticar; sin él no se autentica. |
+| `clave` | texto | no | En Gmail, una contraseña de aplicación. |
+| `nombre` | texto | no | El nombre que se ve en el «De:». |
+
+### `POST /v1/org/correo/prueba`
+
+*Acceso: admin (persona)*
+
+Manda un correo de prueba a quien lo pide. Si el servidor no lo acepta, `502` con lo que contestó (`correo_autenticacion`, `correo_conexion`, `correo_tls`…).
+
+```json
+{ "enviado": true, "para": "tu@ejemplo.com" }
+```
 
 ## Errores
 
@@ -330,5 +392,8 @@ Revoca una llave. La fila se queda: explica quién publicó qué.
 | 409 | `firma_distinta` | El APK está firmado con otra llave: los equipos no podrían actualizar. |
 | 409 | `build_repetida` | Esa build ya está publicada con otro APK. |
 | 410 | `retirada` | Se pidió el APK de una versión retirada. |
+| 410 | `invitacion_vencida` | El enlace para poner la clave venció o ya se usó. |
 | 413 | `apk_grande` | Pasa del tope del hub (`APK_MAX_APK_MB`). |
 | 429 | `demasiadas_consultas` | Más de 240 consultas por minuto desde la misma IP. |
+| 429 | `demasiados_intentos` | Entrar, activar o «¿Olvidaste tu clave?» demasiadas veces seguidas. |
+| 502 | `correo_*` | El servidor de correo no aceptó el de prueba (el mensaje dice qué contestó). |

@@ -13,6 +13,7 @@ import 'src/db.dart';
 import 'src/http/rutas_apps.dart';
 import 'src/http/rutas_auth.dart';
 import 'src/http/rutas_llaves.dart';
+import 'src/http/rutas_org.dart';
 import 'src/http/rutas_publicas.dart';
 import 'src/http/servidor.dart';
 import 'src/log.dart';
@@ -45,6 +46,7 @@ class Hub {
     servidor.upgrades.add(avisos.upgrade);
     registraRutasAuth(servidor);
     registraRutasLlaves(servidor);
+    registraRutasOrg(servidor);
     // Las públicas antes que las del panel: `GET /v1/apps/:app` es la ficha
     // pública y tiene que casar antes que nada que se le parezca.
     registraRutasPublicas(servidor, almacen, avisos);

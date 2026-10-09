@@ -216,6 +216,22 @@ apk-server-hub llave --org 1 --nombre "CI" --permisos publicar --apps inventario
 Imprimen el resultado —un enlace, una llave— en stdout y nada más, para que se
 pueda mandar directo a un archivo sin que pase por la pantalla.
 
+### Correo de salida
+
+Cada organización pone el suyo en el panel (**Organización → Correo de
+salida**): un servidor SMTP cualquiera —el de tu dominio, o Gmail con una
+contraseña de aplicación—, con un botón para mandarte un correo de prueba.
+apk-server no trae uno ni usa el de otro sistema. Con él:
+
+* **las invitaciones llegan por correo** (el panel te enseña el enlace igual,
+  por si no llega);
+* **la entrada del panel ofrece «¿Olvidaste tu clave?»**: la persona pone su
+  correo y le llega un enlace para poner una clave nueva, que sirve una vez y
+  vence en una hora.
+
+Sin correo de salida todo funciona igual que antes: invitar da un enlace que
+compartes tú, y a quien olvidó su clave le das otro desde Usuarios.
+
 Con nginx delante: `hub/nginx-hub.conf` (límites de peticiones, subidas
 grandes sin pasar por un temporal, el WebSocket). Con systemd:
 `hub/deploy-hub.sh`.

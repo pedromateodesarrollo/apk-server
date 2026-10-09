@@ -152,6 +152,7 @@ p code, li code, td code {
 .metodo.GET { background: #0d9488; }
 .metodo.POST { background: #2563eb; }
 .metodo.PATCH { background: #ca8a04; }
+.metodo.PUT { background: #7c3aed; }
 .metodo.DELETE { background: #dc2626; }
 .ruta { font: 14px ui-monospace, monospace; }
 .acceso { margin-left: auto; font-size: 12px; color: var(--texto-2); }
