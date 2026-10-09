@@ -1,14 +1,19 @@
 name: apk_server
-description: Cliente Dart de apk-server — pregunta si hay versión nueva y escucha los avisos por WebSocket. Sin Flutter ni dependencias.
-version: 0.1.0
+description: Cliente Dart de apk-server — el protocolo (consulta, WebSocket), leer un APK y publicarlo en su hub. Sin Flutter.
+version: 0.2.0
 repository: https://github.com/pedromateodesarrollo/apk-server
 publish_to: none
 
 environment:
   sdk: ^3.5.0
 
-# Sin dependencias: HTTP y WebSocket los da dart:io.
+# HTTP y WebSocket los da dart:io; crypto, el sha256 de la firma del APK.
+dependencies:
+  crypto: ^3.0.0
 
 dev_dependencies:
   test: ^1.24.0
   lints: ^4.0.0
+
+executables:
+  publicar:

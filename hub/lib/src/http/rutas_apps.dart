@@ -209,6 +209,15 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
     } else if (versionDicha.isNotEmpty && info.version.isNotEmpty && versionDicha != info.version) {
       rechazo = Respuesta.falla(400, 'version_no_coincide',
           'Dices versión $versionDicha y el APK trae versionName ${info.version}');
+    } else if (info.app != null && info.app!.isNotEmpty && info.app != slug) {
+      // El APK dice de qué app es (la biblioteca de Android lo pone en el
+      // manifiesto): uno de otro sabor preguntaría por la suya y no por esta.
+      rechazo = Respuesta.falla(409, 'app_distinta',
+          'Ese APK es de la app «${info.app}» (lo dice su manifiesto, apkServerApp), no de «$slug».');
+    } else if (info.hub != null && info.hub!.isNotEmpty && !_mismoHub(info.hub!, p.urlPublica)) {
+      rechazo = Respuesta.falla(409, 'hub_distinto',
+          'Ese APK pregunta por sus versiones a ${info.hub} (apkServerHub), no a este hub: '
+              'los equipos nunca verían esta publicación.');
     } else if (app['paquete'] != null && app['paquete'] != info.paquete) {
       rechazo = Respuesta.falla(409, 'paquete_distinto',
           'Ese APK es de ${info.paquete} y la app «$slug» es ${app['paquete']}. '
@@ -413,4 +422,17 @@ String? _tipoImagen(Uint8List b) {
     return 'image/webp';
   }
   return null;
+}
+
+/// ¿[a] y [b] son el mismo hub? Sin la barra final ni mayúsculas en el
+/// esquema y el host (`https://Apk.Ejemplo.com/` = `https://apk.ejemplo.com`).
+bool _mismoHub(String a, String b) {
+  Uri? limpia(String s) {
+    final u = Uri.tryParse(s.trim().replaceAll(RegExp(r'/+$'), ''));
+    if (u == null || !u.hasScheme) return null;
+    return u.replace(scheme: u.scheme.toLowerCase(), host: u.host.toLowerCase());
+  }
+
+  final x = limpia(a), y = limpia(b);
+  return x != null && y != null && x == y;
 }

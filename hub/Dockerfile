@@ -9,6 +9,8 @@ RUN npm run docs && npm run build
 
 FROM dart:stable AS compilador
 WORKDIR /app
+# El cliente de Dart (el lector de APK) va por ruta: ../cliente/dart.
+COPY cliente/dart/ /cliente/dart/
 # El pubspec y su lockfile primero: mientras no cambien, esta capa se reusa y
 # la compilación no vuelve a bajar nada.
 COPY hub/pubspec.yaml hub/pubspec.lock ./

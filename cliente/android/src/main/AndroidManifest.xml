@@ -1,0 +1,72 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Todo esto se funde en el manifiesto de la app: no tiene que declarar
+         nada. El plugin de Flutter usa este mismo archivo.
+
+         REQUEST_INSTALL_PACKAGES: instalar el APK que la app se bajó.
+         UPDATE_PACKAGES_WITHOUT_USER_ACTION: que en Android 12+ esa
+         instalación no pregunte cuando la app se actualiza a sí misma y la
+         persona ya le dio «Permitir de esta fuente». Es un permiso normal: se
+         concede al instalar, sin diálogo.
+         WAKE_LOCK: que la descarga siga con la pantalla apagada.
+         ACCESS_NETWORK_STATE: saber si la red tiene medidor y enterarse de que
+         volvió (el socket se rehace y la descarga cortada sigue ya).
+         POST_NOTIFICATIONS: el aviso de «lista». Desde Android 13 lo tiene
+         que conceder la persona; sin él la app se actualiza igual. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+
+    <application>
+        <!-- De dónde se actualiza la app, y a dónde se publica: `apk-publicar`
+             lo lee del APK. Lo pone la app en su build.gradle.kts, una vez y
+             por sabor:
+
+               manifestPlaceholders["apkServerHub"] = "https://apk.ejemplo.com"
+               manifestPlaceholders["apkServerApp"] = "inventario"
+
+             Sin ellos la app no compila: instalar la biblioteca es decir a qué
+             hub va la app. Con el hub vacío, la app no se actualiza. -->
+        <meta-data
+            android:name="com.chalonasoft.apkserver.HUB"
+            android:value="${apkServerHub}" />
+        <meta-data
+            android:name="com.chalonasoft.apkserver.APP"
+            android:value="${apkServerApp}" />
+
+        <!-- El resultado de cada instalación (Instalador.resultado). -->
+        <receiver
+            android:name="com.chalonasoft.apkserver.InstalacionReceiver"
+            android:exported="false" />
+
+        <!-- La app se actualizó: se borra el APK y la notificación de «lista». -->
+        <receiver
+            android:name="com.chalonasoft.apkserver.ActualizadaReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- La notificación de «lista»: al tocarla se instala. Transparente, y
+             se queda abierta lo que tarda Android en contestar (si pide
+             confirmar, su pantalla sale encima de esta). -->
+        <activity
+            android:name="com.chalonasoft.apkserver.InstalarActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Le pasa el APK al instalador del sistema cuando hace falta que la
+             persona confirme (solo lectura, solo esa carpeta). -->
+        <provider
+            android:name="com.chalonasoft.apkserver.ApkProvider"
+            android:authorities="${applicationId}.apkserver"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+    </application>
+</manifest>

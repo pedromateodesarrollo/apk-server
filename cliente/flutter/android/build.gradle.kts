@@ -1,10 +1,16 @@
-// Lo nativo de apk_server_flutter: instalar la actualización sin preguntar
-// (PackageInstaller, Android 12+) y decir qué equipo es. Ver ApkServerPlugin.kt.
+// Lo nativo de apk_server_flutter: la biblioteca de Android de este mismo
+// repositorio (cliente/android), que hace todo —consulta, aviso por WebSocket,
+// descarga en segundo plano, instalación y notificación—, más el canal con
+// Dart (ApkServerPlugin.kt).
+//
+// Las fuentes y el manifiesto de la biblioteca se compilan aquí mismo, por
+// ruta: pub baja el repositorio entero (también como dependencia git), y así
+// la app no tiene que sumar otro proyecto a su settings.gradle.kts.
 //
 // Sin `buildscript`: el plugin de Android y el de Kotlin los pone la app que lo
 // usa (su settings.gradle.kts), y así no se mezclan dos versiones de AGP.
 group = "com.chalonasoft.apk_server"
-version = "1.0-SNAPSHOT"
+version = "0.2.0"
 
 plugins {
     id("com.android.library")
@@ -30,6 +36,8 @@ extensions.configure<org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtensi
     }
 }
 
+val biblioteca = file("../../android/src/main")
+
 android {
     namespace = "com.chalonasoft.apk_server"
     compileSdk = 36
@@ -41,11 +49,19 @@ android {
 
     sourceSets {
         getByName("main") {
-            java.srcDirs("src/main/kotlin")
+            java.srcDirs("src/main/kotlin", biblioteca.resolve("kotlin"))
+            // Los permisos, el receptor, la pantalla de instalar, el proveedor
+            // del APK y los meta-data del hub: los de la biblioteca, tal cual.
+            manifest.srcFile(biblioteca.resolve("AndroidManifest.xml"))
         }
     }
 
     defaultConfig {
         minSdk = 21
     }
+}
+
+// Las de cliente/android/build.gradle.kts.
+dependencies {
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }

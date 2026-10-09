@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-# Publica un APK en un hub de apk-server.
+# Publica un APK en un hub de apk-server, con curl.
+#
+# Si el APK trae la biblioteca de apk-server (cliente/android), mejor
+# `dart run apk_server_flutter:publicar` (o `apk_server:publicar`): saca el hub
+# y la app del propio APK. Este es para cuando no hay Dart a mano, o para un
+# APK sin la biblioteca.
 #
 #   APK_SERVER_LLAVE=cak_... apk-publicar --hub https://tu-hub --app inventario \
 #       --apk app-release.apk [--build 84] [--version 1.55.0] [--notas "…"] [--requerido]
@@ -21,7 +26,7 @@ while [[ $# -gt 0 ]]; do
     --notas) NOTAS="$2"; shift 2 ;;
     --requerido) REQUERIDO=1; shift ;;
     --llave-archivo) ARCHIVO_LLAVE="$2"; shift 2 ;;
-    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
     *) echo "Argumento desconocido: $1" >&2; exit 64 ;;
   esac
 done

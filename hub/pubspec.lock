@@ -17,6 +17,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "14.5.0"
+  apk_server:
+    dependency: "direct main"
+    description:
+      path: "../cliente/dart"
+      relative: true
+    source: path
+    version: "0.2.0"
   args:
     dependency: transitive
     description:

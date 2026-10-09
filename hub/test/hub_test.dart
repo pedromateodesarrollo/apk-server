@@ -6,13 +6,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:apk_server/apk_sintetico.dart';
 import 'package:apk_server_hub/hub.dart';
 import 'package:apk_server_hub/src/http/rutas_auth.dart';
 import 'package:apk_server_hub/src/seguridad.dart';
 import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 
-import 'apk_sintetico.dart';
 
 /// El hub de punta a punta contra un Postgres de verdad.
 ///
@@ -36,9 +36,17 @@ void main() {
   final certA = Uint8List.fromList(utf8.encode('certificado A'));
   final certB = Uint8List.fromList(utf8.encode('certificado B'));
 
-  Uint8List apk(int build, {String paquete = 'com.ejemplo.inventario', Uint8List? cert}) =>
+  Uint8List apk(
+    int build, {
+    String paquete = 'com.ejemplo.inventario',
+    Uint8List? cert,
+    Map<String, String> metadatos = const {},
+  }) =>
       apkSintetico(
-        {'AndroidManifest.xml': manifiestoSintetico(paquete: paquete, build: build, version: '1.$build.0')},
+        {
+          'AndroidManifest.xml':
+              manifiestoSintetico(paquete: paquete, build: build, version: '1.$build.0', metadatos: metadatos),
+        },
         certificado: cert ?? certA,
       );
 
@@ -99,6 +107,30 @@ void main() {
   tearDownAll(() async {
     await hub.detiene();
     await dir.delete(recursive: true);
+  });
+
+  test('el APK que dice de qué app y de qué hub es solo se publica ahí', () async {
+    var (st, d) = await pide('POST', '/v1/apps', json: {'slug': 'almacen', 'nombre': 'Almacén'}, token: llave);
+    expect(st, 201);
+    Uint8List de(String app, String hubApk) => apk(
+          5,
+          paquete: 'com.ejemplo.almacen',
+          metadatos: {ApkInfo.metaHub: hubApk, ApkInfo.metaApp: app},
+        );
+
+    (st, d) = await pide('POST', '/v1/apps/almacen/versiones', cuerpo: de('almacen-marca', base), token: llave);
+    expect(st, 409);
+    expect(d['error'], 'app_distinta');
+
+    (st, d) = await pide('POST', '/v1/apps/almacen/versiones',
+        cuerpo: de('almacen', 'https://otro-hub.ejemplo.com'), token: llave);
+    expect(st, 409);
+    expect(d['error'], 'hub_distinto');
+
+    // Con la barra al final y el host en mayúsculas es el mismo hub.
+    (st, d) = await pide('POST', '/v1/apps/almacen/versiones',
+        cuerpo: de('almacen', '${base.toUpperCase().replaceFirst('HTTP', 'http')}/'), token: llave);
+    expect(st, 201, reason: '$d');
   });
 
   test('publicar, consultar y bajar', () async {
@@ -226,6 +258,6 @@ void main() {
     (st, d) = await pide('POST', '/v1/auth/login', json: {'correo': 'ana@prueba.test', 'clave': 'una-clave-larga'});
     expect(st, 200);
     (st, d) = await pide('GET', '/v1/apps', token: d['token'] as String);
-    expect((d['apps'] as List).single['slug'], 'inventario');
+    expect([for (final a in d['apps'] as List) a['slug']], contains('inventario'));
   });
 }

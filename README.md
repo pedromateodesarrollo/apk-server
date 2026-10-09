@@ -8,11 +8,14 @@ Software libre y gratis (licencia Apache 2.0): lo instalas en tu propio servidor
 > **In English:** apk-server is a free, self-hosted way to distribute your
 > company's own Android apps and keep them up to date on every device, without
 > Google Play. You upload a new version once (from the panel or with a single
-> `curl`) and every device hears about it at once, downloads it and installs it,
-> silently on Android 12 and later. Each app gets an install page with a QR code
-> for new devices, and the panel shows which version every device is running. A
-> Flutter package adds self-updating to your app in a few lines. The rest of this
-> documentation is in Spanish.
+> command) and every device hears about it at once, downloads it in the
+> background, shows a "ready" notification and installs it, silently on
+> Android 12 and later. Each app gets an install page with a QR code for new
+> devices, and the panel shows which version every device is running. An
+> Android library (usable from Kotlin, Java or Flutter) adds self-updating to
+> any app; the hub and app name go once in its `build.gradle.kts`, and the
+> publish command reads them back from the APK. The rest of this documentation
+> is in Spanish.
 
 ## ¿Para qué sirve?
 
@@ -29,9 +32,10 @@ actualizan solos.** Y en el panel ves qué versión tiene cada uno.
 ## ¿Cómo funciona?
 
 1. **Subes la versión nueva** desde el panel o con un comando.
-2. **Los equipos se enteran en el momento**, la bajan y la instalan solos (desde
-   Android 12, sin preguntarle a nadie). El que estaba apagado se entera al
-   prender.
+2. **Los equipos se enteran en el momento** y la bajan solos, aunque la app
+   esté detrás o la pantalla apagada. Cuando termina sale una notificación
+   «Actualización lista»; la instalan solos (desde Android 12, sin preguntarle
+   a nadie) o al tocarla. El que estaba apagado se entera al prender.
 3. **Para un equipo nuevo**, abre la página de la app (o escanea su QR) y toca
    «Descargar e instalar». Desde ahí se mantiene al día solo.
 
@@ -62,8 +66,10 @@ instalar.*
 ## ¿Cómo lo uso?
 
 * **Monta tu servidor** con Docker en dos comandos (abajo).
-* **En tu app Flutter**, el paquete `apk_server_flutter`: unas líneas en `main`
-  y tu app se actualiza sola (abajo).
+* **En tu app Android** —nativa o Flutter— suma la biblioteca y di en su
+  `build.gradle.kts` a qué hub va. Desde ahí se actualiza sola, y para publicar
+  basta con pasarle el APK al comando: el hub y la app los saca del propio APK
+  (abajo).
 * **Con otra tecnología**, la página de cada app sirve para instalar a mano y
   todo lo demás se hace por API: [docs/api.md](docs/api.md).
 
@@ -82,26 +88,20 @@ instalar.*
                                            y cuándo se vio por última vez
 ```
 
-### Publicar
-
-```bash
-curl -X POST "https://tu-hub/v1/apps/inventario/versiones?notas=Arreglos%20de%20la%20toma" \
-  -H "authorization: Bearer cak_tu_llave" \
-  --data-binary @build/app/outputs/flutter-apk/app-release.apk
-```
-
-O con el script de `herramientas/`, que además comprueba que el `versionCode`
-sea el que esperas:
-
-```bash
-APK_SERVER_LLAVE=cak_... herramientas/apk-publicar \
-  --hub https://tu-hub --app inventario --apk app-release.apk --build 84 --notas "Arreglos"
-```
-
-Repetir la misma publicación no es un error: un script que se cortó a la mitad
-se puede volver a correr.
-
 ### Que la app se actualice sola
+
+Una sola biblioteca para cualquier app Android, en `cliente/android`. Escucha
+el WebSocket del hub, baja en segundo plano y retoma lo cortado, avisa con una
+notificación cuando la versión está lista y la instala sin preguntar desde
+Android 12. Lo primero es decir a qué hub va la app, una vez, en su
+`android/app/build.gradle.kts` (por sabor, si los hay):
+
+```kotlin
+manifestPlaceholders["apkServerHub"] = "https://tu-hub"
+manifestPlaceholders["apkServerApp"] = "inventario"
+```
+
+**En Flutter**, el paquete `apk_server_flutter` (que la compila por debajo):
 
 ```yaml
 # pubspec.yaml
@@ -110,12 +110,11 @@ dependencies:
     git:
       url: https://github.com/pedromateodesarrollo/apk-server
       path: cliente/flutter
+      ref: v0.2.0
 ```
 
 ```dart
 final update = UpdateService(
-  servidor: 'https://tu-hub',
-  app: 'inventario',
   contexto: () => {'empresa': sesion.empresa, 'usuario': sesion.nombre},
 );
 update.iniciar();        // pregunta ya, cada hora y cuando el hub avisa
@@ -123,13 +122,49 @@ update.iniciar();        // pregunta ya, cada hora y cuando el hub avisa
 Scaffold(bottomNavigationBar: UpdateBanner(update), ...);
 ```
 
-El paquete trae el plugin de Android: instala con `PackageInstaller` sin
-diálogo desde Android 12 (si la persona ya permitió instalar desde la app) y,
-si no se puede, con el instalador de siempre. **Instalar cierra la app** y
-Android no la vuelve a abrir: cuándo instalar lo decide la app (`autoInstalar`,
-`puedeInstalar`, o el botón del banner).
+**En una app nativa** (Kotlin o Java), la biblioteca como un proyecto más del
+build:
 
-Para Dart sin Flutter está `cliente/dart` (`apk_server`): solo el protocolo.
+```kotlin
+ApkServer.de(this).iniciar()
+```
+
+Detalle, ajustes y la versión para apps que viven de fondo:
+[cliente/android/README.md](cliente/android/README.md).
+
+**Instalar cierra la app** y Android no la vuelve a abrir. Por eso cuándo
+instalar lo decide la app (`autoInstalar`, `puedeInstalar`, o el botón del
+banner); la notificación de «lista» queda hasta que se instala.
+
+Para Dart sin Flutter está `cliente/dart` (`apk_server`): el protocolo, leer
+un APK y publicarlo.
+
+### Publicar
+
+El hub y la app salen del propio APK: lo que dice su `build.gradle.kts`. Con
+varios sabores, se revisan todos antes de subir el primero:
+
+```bash
+APK_SERVER_LLAVE=cak_... dart run apk_server_flutter:publicar \
+  --apk build/app/outputs/flutter-apk/app-release.apk --build 84 --notas "Arreglos"
+```
+
+Desde una app que no es Flutter, el mismo comando sale de `cliente/dart`
+(`dart run apk_server:publicar`). `--simular` dice qué subiría y a dónde, sin
+subir nada. El hub también lo comprueba: rechaza el APK que dice ser de otra
+app o de otro hub.
+
+Sin la biblioteca, con `curl` o con `herramientas/apk-publicar`, diciendo la
+app:
+
+```bash
+curl -X POST "https://tu-hub/v1/apps/inventario/versiones?notas=Arreglos%20de%20la%20toma" \
+  -H "authorization: Bearer cak_tu_llave" \
+  --data-binary @build/app/outputs/flutter-apk/app-release.apk
+```
+
+Repetir la misma publicación no es un error: un script que se cortó a la mitad
+se puede volver a correr.
 
 ### Levantar tu propio hub
 
@@ -189,11 +224,12 @@ grandes sin pasar por un temporal, el WebSocket). Con systemd:
 
 | Carpeta | Qué hay |
 |---|---|
-| `hub/` | Servidor: REST, WebSocket de las apps, lectura del APK. Dart, dos dependencias |
+| `hub/` | Servidor: REST, WebSocket de las apps. Dart, dos dependencias más el cliente de `cliente/dart` (lee los APK) |
 | `manager/` | Sitio web: presentación, documentación, panel y la página de instalación de cada app |
-| `cliente/dart/` | Cliente Dart puro: consulta y avisos. Sin dependencias |
-| `cliente/flutter/` | Paquete Flutter: actualizarse solo, con el plugin de Android |
-| `herramientas/` | `apk-publicar`, para scripts y CI |
+| `cliente/android/` | Biblioteca Android: actualizarse solo (aviso, descarga de fondo, notificación, instalación). Para cualquier app |
+| `cliente/flutter/` | Paquete Flutter: la biblioteca de Android, más `UpdateService` y los widgets |
+| `cliente/dart/` | Cliente Dart puro: el protocolo, leer un APK (también lo usa el hub) y el comando de publicar |
+| `herramientas/` | `apk-publicar`, con `curl`, para scripts y CI sin Dart |
 | `docs/` | Referencia del API (generada desde el sitio) |
 
 Los APK no van en la base: viven en disco, uno por archivo y con el sha256 de

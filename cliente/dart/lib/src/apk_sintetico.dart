@@ -5,6 +5,9 @@ import 'dart:typed_data';
 /// APK armados byte a byte para las pruebas: un manifiesto en el XML binario
 /// de Android, el zip alrededor y, si toca, el bloque de firma v2. Así el
 /// repositorio no carga APK de nadie y cada caso dice exactamente qué trae.
+///
+/// Está en `lib/` (y no en `test/`) para que lo usen también las pruebas del
+/// hub: `import 'package:apk_server/apk_sintetico.dart'`. No es para apps.
 
 // ------------------------------------------------------------ constructores
 
@@ -19,7 +22,9 @@ class _Bytes {
   Uint8List toBytes() => _b.toBytes();
 }
 
-/// Un AndroidManifest.xml compilado (AXML) con `<manifest>` y `<uses-sdk>`.
+/// Un AndroidManifest.xml compilado (AXML) con `<manifest>`, `<uses-sdk>` y,
+/// con [metadatos], un `<application>` con un `<meta-data>` por cada uno (como
+/// los que deja la biblioteca de Android: `ApkInfo.metaHub`, `ApkInfo.metaApp`).
 Uint8List manifiestoSintetico({
   required String paquete,
   required int build,
@@ -27,14 +32,16 @@ Uint8List manifiestoSintetico({
   int minSdk = 21,
   int targetSdk = 34,
   bool utf8 = false,
+  Map<String, String> metadatos = const {},
 }) {
   // Primero las cadenas con id de recurso (en el mismo orden que el mapa).
   final cadenas = [
-    'versionCode', 'versionName', 'minSdkVersion', 'targetSdkVersion', // 0-3
-    'android', 'http://schemas.android.com/apk/res/android', // 4-5
-    'package', 'manifest', paquete, version, 'uses-sdk', 'application', // 6-11
+    'versionCode', 'versionName', 'minSdkVersion', 'targetSdkVersion', 'name', 'value', // 0-5
+    'android', 'http://schemas.android.com/apk/res/android', // 6-7
+    'package', 'manifest', paquete, version, 'uses-sdk', 'application', 'meta-data', // 8-14
+    for (final e in metadatos.entries) ...[e.key, e.value], // 15…
   ];
-  const ids = [0x0101021b, 0x0101021c, 0x0101020c, 0x01010270];
+  const ids = [0x0101021b, 0x0101021c, 0x0101020c, 0x01010270, 0x01010003, 0x01010024];
   const sinValor = 0xffffffff;
 
   // Tabla de cadenas.
@@ -111,20 +118,43 @@ Uint8List manifiestoSintetico({
     return e.toBytes();
   }
 
-  final manifest = elemento(7, [
-    [sinValor, 6, 8, 0x03, 8],
-    [5, 0, sinValor, 0x10, build],
-    [5, 1, 9, 0x03, 9],
-  ]);
-  final usesSdk = elemento(10, [
-    [5, 2, sinValor, 0x10, minSdk],
-    [5, 3, sinValor, 0x10, targetSdk],
-  ]);
+  Uint8List fin(int nombre) => (_Bytes()
+        ..u16(0x0103)
+        ..u16(16)
+        ..u32(24)
+        ..u32(1)
+        ..u32(sinValor)
+        ..u32(sinValor)
+        ..u32(nombre))
+      .toBytes();
+
   final cuerpo = _Bytes()
     ..bytes(pool.toBytes())
     ..bytes(mapa.toBytes())
-    ..bytes(manifest)
-    ..bytes(usesSdk);
+    ..bytes(elemento(9, [
+      [sinValor, 8, 10, 0x03, 10],
+      [7, 0, sinValor, 0x10, build],
+      [7, 1, 11, 0x03, 11],
+    ]))
+    ..bytes(elemento(12, [
+      [7, 2, sinValor, 0x10, minSdk],
+      [7, 3, sinValor, 0x10, targetSdk],
+    ]))
+    ..bytes(fin(12));
+  if (metadatos.isNotEmpty) {
+    cuerpo.bytes(elemento(13, []));
+    for (var i = 0; i < metadatos.length; i++) {
+      final k = 15 + i * 2;
+      cuerpo
+        ..bytes(elemento(14, [
+          [7, 4, k, 0x03, k],
+          [7, 5, k + 1, 0x03, k + 1],
+        ]))
+        ..bytes(fin(14));
+    }
+    cuerpo.bytes(fin(13));
+  }
+  cuerpo.bytes(fin(9));
   return (_Bytes()
         ..u16(0x0003)
         ..u16(8)

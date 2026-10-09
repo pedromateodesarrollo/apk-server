@@ -26,11 +26,24 @@ La del panel. `POST /v1/auth/login` devuelve un JWT que dura siete días y viaja
 
 La ficha de una app, la consulta de versión, la descarga del APK, `/install/<app>` y el WebSocket. Un equipo nuevo no tiene ninguna credencial, y lo que se reparte —un APK— es público en cuanto sale. Lo que se protege es publicar.
 
-## Clientes Dart y Flutter
+## Clientes
 
-### Flutter: actualizarse solo
+### Android: actualizarse solo
 
-El paquete `apk_server_flutter` (en `cliente/flutter`) consulta, se entera por WebSocket, baja el APK con reanudación e instala. Si la descarga se corta o se queda 45 s sin recibir nada, no se abandona: vuelve a preguntar y sigue desde donde quedó (`Range`) a los 5 s, 15 s, 30 s, 1 min, 2 min y después cada 5 min, o en cuanto el WebSocket reconecta; `UpdateTarjeta` lo dice mientras tanto. En Android 12+, si la persona ya permitió instalar desde la app, instala sin diálogo (la app se cierra y queda en la versión nueva). Cada consulta lleva la clave de la instalación, el ANDROID_ID, el modelo y lo que la app ponga en `contexto`: es lo que se ve en la pestaña Equipos.
+La biblioteca de `cliente/android` sirve para cualquier app Android, nativa o Flutter. Consulta, se entera por WebSocket y baja el APK en segundo plano, con la pantalla apagada y retomando lo cortado. Al terminar comprueba tamaño y sha256 y saca una notificación «Actualización X lista — toca para instalarla», que se queda hasta que se instala. Si la descarga se corta o pasa 45 s sin recibir nada, no se abandona: vuelve a preguntar y sigue desde donde quedó (`Range`) a los 5 s, 15 s, 30 s, 1 min, 2 min y después cada 5 min, o en cuanto vuelve la red. En Android 12+, si la persona ya permitió instalar desde la app, instala sin diálogo (la app se cierra y queda en la versión nueva); si no, al tocar la notificación sale la pantalla del sistema. Cada consulta lleva la clave de la instalación, el ANDROID_ID, el modelo y lo que la app ponga en `contexto`: es lo que se ve en la pestaña Equipos. El hub y la app van una vez en el `build.gradle.kts` de la app (por sabor): de ahí los lee la biblioteca y, del APK, el comando de publicar. Ver `cliente/android/README.md`.
+
+```kotlin
+// android/app/build.gradle.kts
+manifestPlaceholders["apkServerHub"] = "https://TU-HUB"
+manifestPlaceholders["apkServerApp"] = "inventario"
+
+// una app nativa
+ApkServer.de(this).iniciar()   // pregunta ya, cada hora y al llegar un aviso
+```
+
+### Flutter
+
+El paquete `apk_server_flutter` (en `cliente/flutter`) es esa biblioteca más `UpdateService` y los widgets (`UpdateTarjeta`, `UpdateBanner`, `UpdateAccion`).
 
 ```dart
 # pubspec.yaml
@@ -39,11 +52,10 @@ dependencies:
     git:
       url: https://github.com/pedromateodesarrollo/apk-server
       path: cliente/flutter
+      ref: v0.2.0
 
 // main.dart
 final update = UpdateService(
-  servidor: 'https://TU-HUB',
-  app: 'inventario',
   contexto: () => {'empresa': sesion.empresa, 'usuario': sesion.nombre},
 );
 update.iniciar();   // pregunta ya, cada hora y al llegar un aviso
@@ -51,9 +63,18 @@ update.iniciar();   // pregunta ya, cada hora y al llegar un aviso
 Scaffold(bottomNavigationBar: UpdateBanner(update), ...)
 ```
 
+### Publicar desde el proyecto
+
+`dart run apk_server_flutter:publicar --apk <archivo>` (o `dart run apk_server:publicar` desde `cliente/dart`) lee del APK a qué hub y a qué app va, comprueba `--build` y `--version` si se dan, y lo sube con la llave de `APK_SERVER_LLAVE`. Con varios `--apk` (un sabor cada uno) revisa todos antes de subir el primero. `--simular` dice qué haría.
+
+```bash
+APK_SERVER_LLAVE=cak_... dart run apk_server_flutter:publicar \
+  --apk build/app/outputs/flutter-apk/app-release.apk --build 84 --notas "Arreglos"
+```
+
 ### Dart puro: solo el protocolo
 
-El paquete `apk_server` (en `cliente/dart`) sabe preguntar y escuchar el WebSocket, sin Flutter ni nada de Android. Es la base del de Flutter y sirve para otra plataforma.
+El paquete `apk_server` (en `cliente/dart`) sabe preguntar y escuchar el WebSocket, sin Flutter ni nada de Android. También lee un APK (`ApkInfo`, el mismo lector que usa el hub) y lo publica.
 
 ```dart
 final a = ApkActualizador(
@@ -151,7 +172,7 @@ Ficha pública de la app: nombre, descripción, paquete, icono y la última vers
 
 *Acceso: llave con `publicar` o persona*
 
-Sube un APK. El cuerpo es el archivo tal cual. El hub lee del APK el `applicationId`, el `versionCode`, el `versionName`, los SDK y el certificado de firma, y lo rechaza si el paquete o la firma no son los de la app (los fija la primera versión), o si esa build ya existe con otro contenido. Repetir la misma publicación no es error: devuelve la versión con `ya_estaba`. Al terminar avisa por WebSocket a los equipos conectados.
+Sube un APK. El cuerpo es el archivo tal cual. El hub lee del APK el `applicationId`, el `versionCode`, el `versionName`, los SDK y el certificado de firma, y lo rechaza si el paquete o la firma no son los de la app (los fija la primera versión), o si esa build ya existe con otro contenido. Si el APK trae la biblioteca de Android, también lee a qué hub y a qué app dice que va (`apkServerHub`, `apkServerApp`) y lo rechaza si no son este hub y esta app: los equipos nunca verían esa publicación. Repetir la misma publicación no es error: devuelve la versión con `ya_estaba`. Al terminar avisa por WebSocket a los equipos conectados.
 
 | Parámetro | Tipo | | |
 |---|---|---|---|
@@ -304,6 +325,8 @@ Revoca una llave. La fila se queda: explica quién publicó qué.
 | 403 | `sin_permiso` | La llave no tiene el permiso que hace falta. |
 | 404 | `app_no_existe` | No hay una app con ese nombre (o no es de tu organización). |
 | 409 | `paquete_distinto` | El APK es de otro `applicationId` que la app. |
+| 409 | `app_distinta` | El manifiesto del APK dice que es de otra app (`apkServerApp`). |
+| 409 | `hub_distinto` | El manifiesto del APK pregunta a otro hub (`apkServerHub`). |
 | 409 | `firma_distinta` | El APK está firmado con otra llave: los equipos no podrían actualizar. |
 | 409 | `build_repetida` | Esa build ya está publicada con otro APK. |
 | 410 | `retirada` | Se pidió el APK de una versión retirada. |

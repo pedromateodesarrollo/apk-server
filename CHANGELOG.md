@@ -2,6 +2,55 @@
 
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## 0.2.0 — 2026-10-09
+
+Una sola biblioteca de actualización para cualquier app Android, y el proyecto
+dice una vez a qué hub va.
+
+### Clientes
+
+* **`cliente/android`, biblioteca nueva**: toda la lógica de actualizarse, en
+  Kotlin, para cualquier app (nativa o Flutter). Escucha el WebSocket, pregunta
+  cada hora y al volver la red, baja en segundo plano con la pantalla apagada y
+  retoma lo cortado, comprueba tamaño y **sha256** e instala sin preguntar desde
+  Android 12. Antes la lógica estaba en Dart dentro del plugin de Flutter, y
+  cada app nativa tenía su copia.
+* **Notificación de «lista»** al terminar de bajar. Al tocarla se instala, y si
+  hace falta la persona (falta «Permitir de esta fuente», o Android pide
+  confirmar) sale la pantalla del sistema. Se queda hasta que la versión se
+  instala; un receptor de `MY_PACKAGE_REPLACED` la quita, con el APK, en cuanto
+  la app se actualiza. Con `notificarDescarga`, una callada con el avance.
+* **El hub y la app van en el `build.gradle.kts`** (`manifestPlaceholders`
+  `apkServerHub` y `apkServerApp`, por sabor), y la biblioteca los lee del
+  manifiesto. Sin ellos la app no compila; con el hub vacío no se actualiza.
+* **Lo bajado sobrevive al proceso**: si la app se cierra, al volver el APK
+  sigue listo. Una versión que el hub deja de ofrecer (retirada) se borra.
+* Ajustes para apps de fondo: `soloWifi`, `autoInstalar`, `puedeInstalar`,
+  `quizas()`, `pingSegundos`, `esperaMaxAvisosMs`.
+* `apk_server_flutter` 0.2.0 compila la biblioteca dentro del plugin. Su API en
+  Dart sigue igual (`UpdateService`, `UpdateTarjeta`, `UpdateBanner`,
+  `UpdateAccion`); `servidor` y `app` pasan a opcionales (salen del
+  manifiesto), suma `urlInstalar`, y `UpdateEstado` trae `build` y `falta`. Sale
+  `UpdateInstalador` y ya no depende de `open_filex`, `package_info_plus` ni
+  `path_provider`. Arreglado: dos toques seguidos a «Instalar» podían armar dos
+  instalaciones.
+* La clave de la instalación se conserva al pasar de la 0.1 (o de los
+  actualizadores nativos de antes): para el panel es el mismo equipo. Probado
+  en Android 15: una app con la 0.1.2 se actualizó sola a una con la 0.2.0 y
+  siguió con su clave.
+* **`publicar`**: `dart run apk_server_flutter:publicar --apk …` (o
+  `apk_server:publicar`) lee del APK a qué hub y a qué app va y lo sube.
+  Comprueba `--build`/`--version`, revisa todos los sabores antes de subir el
+  primero y tiene `--simular`.
+* `apk_server` (Dart) suma `ApkInfo` (lee paquete, versión, firma y los
+  meta-data de un APK) y depende de `crypto`.
+
+### Hub
+
+* Usa el lector de APK de `cliente/dart`, que ahora también lee los meta-data.
+* Rechaza el APK cuyo manifiesto dice que es de otra app (`app_distinta`) o
+  que pregunta a otro hub (`hub_distinto`).
+
 ## 0.1.2 — 2026-10-08
 
 ### Hub

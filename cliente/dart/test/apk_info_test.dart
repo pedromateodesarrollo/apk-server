@@ -2,11 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:apk_server_hub/src/apk_info.dart';
+import 'package:apk_server/apk_info.dart';
+import 'package:apk_server/apk_sintetico.dart';
 import 'package:crypto/crypto.dart';
 import 'package:test/test.dart';
 
-import 'apk_sintetico.dart';
 
 /// Los APK salen de `apk_sintetico.dart`: armados byte a byte, sin cargar
 /// APK de nadie en el repositorio.
@@ -48,6 +48,37 @@ void main() {
       expect(info.paquete, 'com.ejemplo.compras');
       expect(info.build, 39);
       expect(info.version, '2.17.0');
+    });
+
+    test('lee de los meta-data a qué hub y a qué app va el APK', () async {
+      final apk = apkSintetico({
+        'AndroidManifest.xml': manifiestoSintetico(
+          paquete: 'com.ejemplo.inventario',
+          build: 84,
+          version: '1.55.0',
+          metadatos: {
+            ApkInfo.metaHub: 'https://apk.ejemplo.com/',
+            ApkInfo.metaApp: 'inventario',
+            'otra.cosa': 'x',
+          },
+        ),
+      });
+      final info = await ApkInfo.deBytes(apk);
+      expect(info.hub, 'https://apk.ejemplo.com');
+      expect(info.app, 'inventario');
+      expect(info.metadatos['otra.cosa'], 'x');
+      expect(info.build, 84, reason: 'lo de siempre se sigue leyendo');
+      expect(info.aJson()['app'], 'inventario');
+    });
+
+    test('un APK sin la biblioteca no dice hub ni app', () async {
+      final apk = apkSintetico({
+        'AndroidManifest.xml': manifiestoSintetico(paquete: 'a.b', build: 1, version: '1'),
+      });
+      final info = await ApkInfo.deBytes(apk);
+      expect(info.hub, isNull);
+      expect(info.app, isNull);
+      expect(info.aJson().containsKey('app'), isFalse);
     });
 
     test('un versionCode grande no se vuelve negativo', () async {

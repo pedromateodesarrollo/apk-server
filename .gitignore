@@ -16,3 +16,6 @@ cliente/*/pubspec.lock
 .flutter-plugins-dependencies
 cliente/flutter/android/.gradle/
 cliente/flutter/android/local.properties
+cliente/android/.gradle/
+cliente/android/.kotlin/
+cliente/android/local.properties

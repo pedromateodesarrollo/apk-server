@@ -30,7 +30,7 @@ function marca(texto = '') {
       <div class="grupo">Guía</div>
       <a href="#/docs">Empezar</a>
       <a href="#/docs#auth">Autenticación</a>
-      <a href="#/docs#clientes">Clientes Dart y Flutter</a>
+      <a href="#/docs#clientes">Clientes</a>
       <a href="#/docs#errores">Errores</a>
       <div class="grupo">Referencia</div>
       <a v-for="g in grupos" :key="g" :href="`#/docs#${ancla(g)}`">{{ g }}</a>
@@ -47,7 +47,7 @@ function marca(texto = '') {
         <pre v-if="a.ejemplo" style="margin-top: 12px">{{ a.ejemplo }}</pre>
       </div>
 
-      <h2 id="clientes" style="margin-top: 34px">Clientes Dart y Flutter</h2>
+      <h2 id="clientes" style="margin-top: 34px">Clientes</h2>
       <div v-for="c in clientes" :key="c.titulo" class="tarjeta" style="margin-bottom: 12px">
         <h3>{{ c.titulo }}</h3>
         <p v-html="marca(c.texto)"></p>

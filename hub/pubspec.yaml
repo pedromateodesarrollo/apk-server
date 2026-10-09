@@ -6,12 +6,15 @@ publish_to: none
 environment:
   sdk: '>=3.9.0 <4.0.0'
 
-# Dos dependencias a propósito, igual que print-server: quien clone esto tiene
-# que poder compilarlo sin arrastrar medio ecosistema. HTTP, WebSocket y
-# descompresión los da dart:io.
+# Pocas dependencias a propósito, igual que print-server: quien clone esto
+# tiene que poder compilarlo sin arrastrar medio ecosistema. HTTP, WebSocket y
+# descompresión los da dart:io. `apk_server` es el cliente de este mismo
+# repositorio: de ahí sale el lector de APK.
 dependencies:
   postgres: ^3.1.0
   crypto: ^3.0.0
+  apk_server:
+    path: ../cliente/dart
 
 dev_dependencies:
   test: ^1.24.0

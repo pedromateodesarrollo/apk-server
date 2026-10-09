@@ -89,13 +89,12 @@ const diagrama = `  Tu script de publicación         Hub                     Eq
         </div>
         <div class="paso">
           <h3>Publica</h3>
-          <pre>curl -X POST https://TU-HUB/v1/apps/mi-app/versiones \
-  -H "authorization: Bearer cak_..." \
-  --data-binary @app-release.apk</pre>
+          <pre>dart run apk_server_flutter:publicar --apk app-release.apk</pre>
+          <p class="apagado">El hub y la app los saca del propio APK. Sin la biblioteca, con <code>curl --data-binary @app-release.apk</code>.</p>
         </div>
         <div class="paso">
           <h3>Pon el cliente en la app</h3>
-          <p class="apagado">El paquete Flutter pregunta, baja e instala (sin diálogo en Android 12+). Ver <a href="#/docs#clientes">clientes</a>.</p>
+          <p class="apagado">La biblioteca de Android (nativa o Flutter) se entera al instante, baja en segundo plano, avisa cuando está lista e instala (sin diálogo en Android 12+). El hub va una vez en su <code>build.gradle.kts</code>. Ver <a href="#/docs#clientes">clientes</a>.</p>
         </div>
       </div>
     </div>

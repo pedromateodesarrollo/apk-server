@@ -20,10 +20,10 @@ for (const a of autenticacion) {
   if (a.ejemplo) l.push('```bash', a.ejemplo, '```', '')
 }
 
-l.push('## Clientes Dart y Flutter', '')
+l.push('## Clientes', '')
 for (const c of clientes) {
   l.push(`### ${c.titulo}`, '', c.texto, '')
-  if (c.ejemplo) l.push('```dart', c.ejemplo, '```', '')
+  if (c.ejemplo) l.push('```' + (c.lenguaje ?? 'dart'), c.ejemplo, '```', '')
 }
 
 for (const g of grupos) {
