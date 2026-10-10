@@ -52,7 +52,7 @@ dependencies:
     git:
       url: https://github.com/pedromateodesarrollo/apk-server
       path: cliente/flutter
-      ref: v0.2.1
+      ref: v0.2.0
 
 // main.dart
 final update = UpdateService(
