@@ -16,9 +16,14 @@ import 'update_service.dart';
 /// Pensada para pantallas que se miran de lejos y con guantes: letra grande,
 /// barra de progreso ancha, un solo botón.
 class UpdateTarjeta extends StatelessWidget {
-  const UpdateTarjeta(this.service, {super.key});
+  const UpdateTarjeta(this.service, {super.key, this.nota = ''});
 
   final UpdateService service;
+
+  /// Lo que esta app quiera añadir cuando la versión está lista («Lo que esté
+  /// a medio contar ya está guardado en el servidor.»). La biblioteca no sabe
+  /// qué hace la app: sin nota, solo dice que se cierra al instalar.
+  final String nota;
 
   @override
   Widget build(BuildContext context) {
@@ -101,8 +106,7 @@ class UpdateTarjeta extends StatelessWidget {
                 ),
               ] else ...[
                 Text(
-                  '$kUpdateTextoListo Lo que esté a medio contar ya está '
-                  'guardado en el servidor.',
+                  updateTextoListo(nota),
                   style: TextStyle(fontSize: 14, color: c.onPrimaryContainer),
                 ),
                 const SizedBox(height: 12),

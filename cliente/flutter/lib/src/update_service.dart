@@ -14,6 +14,10 @@ const kUpdateTextoListo =
     'Al instalar, la app se cierra. Ábrela de nuevo y ya estará en la versión '
     'nueva.';
 
+/// El texto de «lista» con la nota de la app, si trae una.
+String updateTextoListo(String nota) =>
+    nota.trim().isEmpty ? kUpdateTextoListo : '$kUpdateTextoListo ${nota.trim()}';
+
 /// Las esperas por defecto entre un corte de la descarga y el siguiente
 /// intento ([UpdateService.esperasReintento]).
 const kUpdateEsperasReintento = [

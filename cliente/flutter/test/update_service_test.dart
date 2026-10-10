@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:apk_server_flutter/apk_server_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -190,5 +191,19 @@ void main() {
     expect(await s.sinPreguntar(), isFalse);
     expect(s.estado.value.fase, UpdateFase.idle);
     expect(s.urlInstalar, isNull);
+  });
+  testWidgets('la tarjeta de «lista» no habla de lo que hace la app; la nota sí',
+      (t) async {
+    final s = UpdateService();
+    await s.iniciar();
+    await desdeAndroid('estado', listo(84));
+    await t.pumpWidget(MaterialApp(home: Scaffold(body: UpdateTarjeta(s))));
+    expect(find.text(kUpdateTextoListo), findsOneWidget);
+    expect(find.textContaining('contar'), findsNothing);
+
+    const nota = 'Lo que esté a medio contar ya está guardado en el servidor.';
+    await t.pumpWidget(
+        MaterialApp(home: Scaffold(body: UpdateTarjeta(s, nota: nota))));
+    expect(find.text('$kUpdateTextoListo $nota'), findsOneWidget);
   });
 }

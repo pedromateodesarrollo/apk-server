@@ -14,9 +14,13 @@ import 'update_service.dart';
 /// con punto. Tocarlo abre el detalle: qué versión, cuánto lleva, y el botón de
 /// instalar cuando ya se puede.
 class UpdateAccion extends StatelessWidget {
-  const UpdateAccion(this.service, {super.key});
+  const UpdateAccion(this.service, {super.key, this.nota = ''});
 
   final UpdateService service;
+
+  /// Lo que esta app quiera añadir cuando la versión está lista; ver
+  /// [UpdateTarjeta.nota].
+  final String nota;
 
   @override
   Widget build(BuildContext context) {
@@ -122,8 +126,7 @@ class UpdateAccion extends StatelessWidget {
                   ),
                 ] else
                   Text(
-                    '$kUpdateTextoListo Lo que esté a medio contar ya está '
-                    'guardado en el servidor.',
+                    updateTextoListo(nota),
                     style: TextStyle(
                       color: Theme.of(ctx).colorScheme.outline,
                       fontSize: 13,

@@ -2,9 +2,10 @@
 
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
-## Sin publicar
+## 0.2.1 — 2026-10-09
 
-Correo de salida por organización y, con él, «¿Olvidaste tu clave?».
+Correo de salida por organización y, con él, «¿Olvidaste tu clave?». En el
+cliente Flutter, la tarjeta de «lista» deja de hablar de un almacén.
 
 ### Hub
 
@@ -35,6 +36,14 @@ Correo de salida por organización y, con él, «¿Olvidaste tu clave?».
 * Pantalla **Organización** (quien administra), con el correo de salida y su
   prueba.
 * Usuarios dice si el enlace salió por correo o si hay que compartirlo a mano.
+
+### Cliente Flutter
+
+* La tarjeta y el aviso de «lista» (`UpdateTarjeta`, `UpdateAccion`) ya no
+  dicen «Lo que esté a medio contar ya está guardado en el servidor»: era cosa
+  de un almacén y salía en todas las apps. Ahora dicen solo que la app se
+  cierra al instalar; la app que quiera añadir algo lo pasa en `nota`
+  (`updateTextoListo(nota)` arma el texto).
 
 ## 0.2.0 — 2026-10-09
 

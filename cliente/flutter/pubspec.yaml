@@ -1,6 +1,6 @@
 name: apk_server_flutter
 description: Auto-actualización de apps Flutter con apk-server — aviso por WebSocket, descarga en segundo plano, notificación de «lista» e instalación sin preguntar en Android 12+. Y el comando para publicar.
-version: 0.2.0
+version: 0.2.1
 repository: https://github.com/pedromateodesarrollo/apk-server
 publish_to: none
 
