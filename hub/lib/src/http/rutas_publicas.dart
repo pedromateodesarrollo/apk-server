@@ -31,6 +31,7 @@ void registraRutasPublicas(Servidor s, Almacen almacen, Avisos avisos) {
       'nombre': app['nombre'],
       'descripcion': app['descripcion'],
       'paquete': app['paquete'],
+      'plataforma': app['plataforma'],
       'icono': app['tiene_icono'] == true ? '/v1/apps/$slug/icono' : null,
       'instalar': '${p.urlPublica}/install/$slug',
       'pagina': '${p.urlPublica}/i/$slug',
@@ -92,16 +93,17 @@ void registraRutasPublicas(Servidor s, Almacen almacen, Avisos avisos) {
   // El APK. Nombre = sha256: la URL no cambia nunca y se cachea para siempre.
   s.ruta('GET', '/archivos/:archivo', (p) async {
     final nombre = p.params['archivo'] ?? '';
-    final sha = nombre.endsWith('.apk') ? nombre.substring(0, nombre.length - 4) : '';
+    final formato = nombre.endsWith('.msi') ? 'msi' : 'apk';
+    final sha = nombre.endsWith('.$formato') ? nombre.substring(0, nombre.length - 4) : '';
     if (!Almacen.shaValido(sha)) return Respuesta.falla(404, 'no_encontrado', '');
     final v = await p.bd.fila(
       '''select v.id, v.version, v.build, v.retirada, a.slug
            from apk.version v join apk.app a on a.id = v.app
-          where v.sha256 = @s
+          where v.sha256 = @s and v.formato = @f
           order by (v.retirada is null) desc, v.build desc limit 1''',
-      {'s': sha},
+      {'s': sha, 'f': formato},
     );
-    if (v == null || !almacen.existe(sha)) {
+    if (v == null || !almacen.existe(sha, formato)) {
       return Respuesta.falla(404, 'no_encontrado', 'Ese APK no está en este hub');
     }
     if (v['retirada'] != null) {
@@ -109,8 +111,8 @@ void registraRutasPublicas(Servidor s, Almacen almacen, Avisos avisos) {
     }
     final descargaCompleta = await _sirve(
       p.crudo,
-      almacen.archivo(sha),
-      '${v['slug']}-${v['version']}.apk',
+      almacen.archivo(sha, formato),
+      '${v['slug']}-${v['version']}.$formato',
     );
     if (descargaCompleta) {
       unawaited(p.bd
@@ -131,7 +133,7 @@ void registraRutasPublicas(Servidor s, Almacen almacen, Avisos avisos) {
       return Respuesta.falla(404, 'sin_versiones', '«$slug» todavía no tiene versiones publicadas');
     }
     return Respuesta(302, null, cabeceras: {
-      'location': rutaArchivo(ultima['sha256'] as String),
+      'location': rutaArchivo(ultima['sha256'] as String, ultima['formato'] as String),
       'cache-control': 'no-cache',
     });
   }
@@ -158,7 +160,7 @@ Future<Map<String, Object?>> _respuesta(Peticion p, int app, int build) async {
 Map<String, Object?> _publica(Map<String, Object?> v) => {
       for (final k in const [
         'build', 'version', 'requerido', 'notas', 'sha256', 'bytes',
-        'paquete', 'min_sdk', 'publicado', 'ruta', 'url',
+        'paquete', 'min_sdk', 'publicado', 'ruta', 'url', 'formato', 'firma_publicador',
       ])
         k: v[k],
     };
@@ -251,7 +253,9 @@ Future<bool> _sirve(HttpRequest pet, File archivo, String nombre) async {
   }
   res.statusCode = parcial ? HttpStatus.partialContent : HttpStatus.ok;
   res.headers
-    ..contentType = ContentType('application', 'vnd.android.package-archive')
+    ..contentType = nombre.endsWith('.msi')
+        ? ContentType('application', 'x-msi')
+        : ContentType('application', 'vnd.android.package-archive')
     ..set('accept-ranges', 'bytes')
     ..set('content-length', '${hasta - desde + 1}')
     ..set('content-disposition', 'attachment; filename="$nombre"')

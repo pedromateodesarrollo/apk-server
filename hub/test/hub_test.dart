@@ -146,6 +146,59 @@ void main() {
     expect(st, 201, reason: '$d');
   });
 
+  test('una app de Windows publica su MSI con build, versión y la firma del publicador', () async {
+    var (st, d) = await pide('POST', '/v1/apps',
+        json: {'slug': 'vpn-escritorio', 'nombre': 'VPN', 'plataforma': 'windows'}, token: llave);
+    expect(st, 201, reason: '$d');
+    expect(d['plataforma'], 'windows');
+    (st, d) = await pide('POST', '/v1/apps', json: {'slug': 'otra', 'nombre': 'x', 'plataforma': 'ios'}, token: llave);
+    expect((st, d['error']), (400, 'plataforma_invalida'));
+
+    final msi = Uint8List.fromList([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1, ...utf8.encode('un MSI de prueba')]);
+    final firma = base64.encode(utf8.encode('firma-del-publicador-de-prueba'));
+
+    // Un APK (o cualquier otra cosa) no es un MSI.
+    (st, d) = await pide('POST', '/v1/apps/vpn-escritorio/versiones?build=1&version=0.1.0', cuerpo: apk(1), token: llave);
+    expect((st, d['error']), (400, 'msi_invalido'));
+    // Sin build ni versión no se sabe qué es.
+    (st, d) = await pide('POST', '/v1/apps/vpn-escritorio/versiones?version=0.1.0', cuerpo: msi, token: llave);
+    expect((st, d['error']), (400, 'falta_build'));
+    (st, d) = await pide('POST', '/v1/apps/vpn-escritorio/versiones?build=1', cuerpo: msi, token: llave);
+    expect((st, d['error']), (400, 'falta_version'));
+
+    (st, d) = await pide('POST',
+        '/v1/apps/vpn-escritorio/versiones?build=1&version=0.1.0&paquete=E98D9598-AAAA&firma=${Uri.encodeQueryComponent(firma)}',
+        cuerpo: msi, token: llave);
+    expect(st, 201, reason: '$d');
+    expect(d['formato'], 'msi');
+    expect(d['firma_publicador'], firma);
+    expect(d['ruta'], endsWith('.msi'));
+
+    // El UpgradeCode lo fija la primera versión.
+    final msi2 = Uint8List.fromList([...msi, 2]);
+    (st, d) = await pide('POST', '/v1/apps/vpn-escritorio/versiones?build=2&version=0.2.0&paquete=otro', cuerpo: msi2, token: llave);
+    expect((st, d['error']), (409, 'paquete_distinto'));
+
+    (st, d) = await pide('POST', '/v1/apps/vpn-escritorio/consulta', json: {'build': 0, 'instalacion': 'win-equipo-01'});
+    expect(d['actualizar'], isTrue);
+    expect(d['version']['firma_publicador'], firma);
+    expect(d['version']['formato'], 'msi');
+
+    (st, d) = await pide('GET', '/install/vpn-escritorio');
+    expect(st, 302);
+    final ruta = d['_location'] as String;
+    expect(ruta, endsWith('.msi'));
+    final c = HttpClient();
+    final res = await (await c.getUrl(Uri.parse('$base$ruta'))).close();
+    expect(res.headers.contentType?.mimeType, 'application/x-msi');
+    final bajado = await res.fold<List<int>>([], (a, b) => a..addAll(b));
+    c.close();
+    expect(bajado, msi);
+    // El mismo sha256 como .apk no existe.
+    (st, d) = await pide('GET', ruta.replaceFirst('.msi', '.apk'));
+    expect(st, 404);
+  });
+
   test('publicar, consultar y bajar', () async {
     var (st, d) = await pide('POST', '/v1/apps', json: {'slug': 'inventario', 'nombre': 'Inventario'}, token: llave);
     expect(st, 201);

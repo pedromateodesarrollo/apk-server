@@ -28,6 +28,7 @@ onMounted(async () => {
 })
 
 const ultima = computed(() => datos.value?.ultima)
+const windows = computed(() => datos.value?.plataforma === 'windows')
 </script>
 
 <template>
@@ -45,14 +46,22 @@ const ultima = computed(() => datos.value?.ultima)
         <p class="version">
           Versión {{ ultima.version }} · {{ bytes(ultima.bytes) }} · {{ fecha(ultima.publicado) }}
         </p>
-        <a class="boton" :href="datos.instalar">Descargar e instalar</a>
+        <a class="boton" :href="datos.instalar">{{ windows ? 'Descargar el instalador' : 'Descargar e instalar' }}</a>
 
-        <div v-if="!esAndroid">
+        <div v-if="!esAndroid && !windows">
           <div class="qr" v-html="qr"></div>
           <p class="apagado">Escanéalo con el teléfono para abrir esta página allí.</p>
         </div>
 
-        <div class="tarjeta" style="margin-top: 28px; text-align: left">
+        <div v-if="windows" class="tarjeta" style="margin-top: 28px; text-align: left">
+          <h3>Para instalar en Windows</h3>
+          <ol>
+            <li>Toca «Descargar el instalador» y ábrelo al terminar (pide permiso de administrador).</li>
+            <li>Si Windows avisa que el instalador no es conocido, «Más información» → «Ejecutar de todas formas».</li>
+            <li>Desde ahí el programa se actualiza solo cuando sale una versión nueva.</li>
+          </ol>
+        </div>
+        <div v-else class="tarjeta" style="margin-top: 28px; text-align: left">
           <h3>Para instalar</h3>
           <ol>
             <li>Toca «Descargar e instalar» y abre el archivo al terminar.</li>

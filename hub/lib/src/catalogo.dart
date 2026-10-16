@@ -5,7 +5,7 @@ import 'db.dart';
 
 const columnasVersion = '''v.id, v.build, v.version, v.requerido, v.notas, v.sha256,
   v.bytes, v.paquete, v.firma, v.min_sdk, v.target_sdk, v.descargas,
-  v.publicado, v.publicado_por, v.retirada''';
+  v.publicado, v.publicado_por, v.retirada, v.formato, v.firma_publicador''';
 
 /// Slug válido de una app: minúsculas, números y guiones, hasta 63.
 final slugValido = RegExp(r'^[a-z0-9][a-z0-9-]{0,62}$');
@@ -13,7 +13,7 @@ final slugValido = RegExp(r'^[a-z0-9][a-z0-9-]{0,62}$');
 Future<Map<String, Object?>?> appPorSlug(Bd bd, String slug) {
   if (!slugValido.hasMatch(slug)) return Future.value(null);
   return bd.fila(
-    '''select id, org, slug, nombre, descripcion, paquete, firma,
+    '''select id, org, slug, nombre, descripcion, paquete, firma, plataforma,
               icono is not null as tiene_icono, creado
          from apk.app where slug = @s''',
     {'s': slug},
@@ -40,12 +40,15 @@ Future<bool> hayRequerida(Bd bd, int app, int build) async =>
     ) !=
     null;
 
-/// Ruta de descarga de un APK. Lleva el sha256: es inmutable y se cachea.
-String rutaArchivo(String sha) => '/archivos/$sha.apk';
+/// Ruta de descarga de un APK (o de un MSI). Lleva el sha256: es inmutable y se cachea.
+String rutaArchivo(String sha, [String formato = 'apk']) => '/archivos/$sha.$formato';
+
+/// Formatos de archivo que guarda el hub: el de cada plataforma.
+const formatoDe = {'android': 'apk', 'windows': 'msi'};
 
 /// Una versión tal como la ven el panel y las apps.
 Map<String, Object?> versionJson(Map<String, Object?> v, String urlPublica) {
-  final ruta = rutaArchivo(v['sha256'] as String);
+  final ruta = rutaArchivo(v['sha256'] as String, (v['formato'] as String?) ?? 'apk');
   return {
     'build': v['build'],
     'version': v['version'],
@@ -61,6 +64,8 @@ Map<String, Object?> versionJson(Map<String, Object?> v, String urlPublica) {
     'publicado': v['publicado'],
     'publicado_por': v['publicado_por'],
     'retirada': v['retirada'],
+    'formato': v['formato'] ?? 'apk',
+    'firma_publicador': v['firma_publicador'],
     'ruta': ruta,
     'url': '$urlPublica$ruta',
   };

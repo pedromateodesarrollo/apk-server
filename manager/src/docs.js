@@ -238,6 +238,31 @@ export const puntos = [
   },
   {
     grupo: 'Publicar',
+    metodo: 'POST',
+    ruta: '/v1/apps/:app/versiones (Windows)',
+    acceso: 'llave con `publicar` o persona',
+    resumen:
+      'Si la app es de `plataforma: "windows"`, el cuerpo es su instalador MSI. El hub no lo abre: ' +
+      'solo comprueba que sea un MSI por sus primeros bytes, así que `build` y `version` las dice ' +
+      'quien publica. `paquete` es el UpgradeCode y lo fija la primera versión. `firma` es la firma ' +
+      'del publicador: se reparte como `firma_publicador` en la consulta para que el programa ' +
+      'instalado la verifique con la llave pública que lleva dentro antes de instalar (un MSI sin ' +
+      'firma de código no tiene un sistema que lo haga por él). La versión sale con ' +
+      '`formato: "msi"` y se baja de `/archivos/<sha256>.msi`.',
+    consulta: [
+      ['build', 'entero', 'sí', 'Sube en cada versión: es lo que se compara.'],
+      ['version', 'texto', 'sí', 'La que ve la gente.'],
+      ['paquete', 'texto', '', 'UpgradeCode del MSI; uno distinto al de la primera versión se rechaza.'],
+      ['firma', 'texto', '', 'Firma del publicador en base64 (16–1024 caracteres). El hub no la interpreta.'],
+      ['notas', 'texto', '', 'Lo que ve quien actualiza.'],
+      ['requerido', '1', '', 'Obligatoria.'],
+    ],
+    ejemplo: `curl -X POST "https://TU-HUB/v1/apps/mi-programa/versiones?build=3&version=0.3.0&firma=MEUCIQ…%3D%3D" \\
+  -H "authorization: Bearer cak_..." --data-binary @MiPrograma-0.3.0.msi`,
+    respuesta: `{ …la versión…, "formato": "msi", "firma_publicador": "MEUCIQ…==", "avisadas": 3 }`,
+  },
+  {
+    grupo: 'Publicar',
     metodo: 'PATCH',
     ruta: '/v1/apps/:app/versiones/:build',
     acceso: 'llave con `publicar` o persona',
@@ -285,6 +310,7 @@ export const puntos = [
       ['slug', 'texto', 'sí', 'Minúsculas, números y guiones; hasta 63.'],
       ['nombre', 'texto', 'sí', ''],
       ['descripcion', 'texto', 'no', ''],
+      ['plataforma', 'texto', 'no', '`android` (por defecto, APK) o `windows` (instalador MSI). No se cambia.'],
     ],
   },
   {

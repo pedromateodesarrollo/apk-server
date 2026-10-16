@@ -32,7 +32,7 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
   s.ruta('GET', '/v1/apps', (p) async {
     if (!p.s.puede('leer')) return sinPermiso('leer');
     final filas = await p.bd.filas(
-      '''select a.id, a.slug, a.nombre, a.descripcion, a.paquete, a.firma,
+      '''select a.id, a.slug, a.nombre, a.descripcion, a.paquete, a.firma, a.plataforma,
                 a.icono is not null as tiene_icono, a.creado,
                 u.build as ultima_build, u.version as ultima_version,
                 u.publicado as ultima_publicada, u.requerido as ultima_requerida,
@@ -72,14 +72,18 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
     if (nombre.isEmpty) {
       return Respuesta.falla(400, 'falta_nombre', 'Ponle nombre a la app');
     }
+    final plataforma = p.cuerpo.containsKey('plataforma') ? p.texto('plataforma') : 'android';
+    if (!formatoDe.containsKey(plataforma)) {
+      return Respuesta.falla(400, 'plataforma_invalida', 'La plataforma es «android» (APK) o «windows» (MSI)');
+    }
     if (await appPorSlug(p.bd, slug) != null) {
       return Respuesta.falla(409, 'slug_en_uso', 'Ya hay una app «$slug» en este hub');
     }
     final app = await p.bd.fila(
-      '''insert into apk.app (org, slug, nombre, descripcion)
-         values (@o, @s, @n, @d)
-         returning id, slug, nombre, descripcion, creado''',
-      {'o': p.s.org, 's': slug, 'n': nombre, 'd': p.texto('descripcion')},
+      '''insert into apk.app (org, slug, nombre, descripcion, plataforma)
+         values (@o, @s, @n, @d, @pl)
+         returning id, slug, nombre, descripcion, plataforma, creado''',
+      {'o': p.s.org, 's': slug, 'n': nombre, 'd': p.texto('descripcion'), 'pl': plataforma},
     );
     log.info('apps', 'app nueva: $slug (org ${p.s.org})');
     return Respuesta.creado(app);
@@ -171,6 +175,97 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
     });
   });
 
+  // Publicar el MSI de una app de Windows. El hub no abre el MSI: la build y la
+  // versión las dice quien publica (obligatorias) y solo se comprueba que el
+  // archivo sea un MSI. `paquete` (opcional) es el UpgradeCode: lo fija la
+  // primera versión, como el applicationId en Android. `firma` (opcional) es la
+  // firma del publicador que el programa instalado verifica antes de instalar.
+  Future<Respuesta> publicaMsi(Peticion p, Map<String, Object?> app, Subida subida) async {
+    final slug = app['slug'] as String;
+    final q = p.consulta;
+    final build = int.tryParse(q['build'] ?? '');
+    final version = (q['version'] ?? '').trim();
+    final paquete = (q['paquete'] ?? '').trim().toLowerCase();
+    final firma = (q['firma'] ?? '').trim();
+    Respuesta? rechazo;
+    if (!await _esMsi(subida)) {
+      rechazo = Respuesta.falla(400, 'msi_invalido', '«$slug» es una app de Windows: manda su instalador MSI');
+    } else if (build == null || build <= 0) {
+      rechazo = Respuesta.falla(400, 'falta_build', 'Di la build (entero que sube en cada versión): ?build=N');
+    } else if (version.isEmpty || version.length > 40) {
+      rechazo = Respuesta.falla(400, 'falta_version', 'Di la versión que ve la gente: ?version=1.2.3');
+    } else if (paquete.isNotEmpty && app['paquete'] != null && app['paquete'] != paquete) {
+      rechazo = Respuesta.falla(409, 'paquete_distinto',
+          'Ese instalador dice UpgradeCode $paquete y la app «$slug» es ${app['paquete']}: '
+              'no actualizaría lo instalado.');
+    } else if (firma.isNotEmpty && !_firmaPublicadorValida.hasMatch(firma)) {
+      rechazo = Respuesta.falla(400, 'firma_invalida', 'La firma del publicador va en base64 (16 a 1024 caracteres)');
+    }
+    if (rechazo != null) {
+      subida.descarta();
+      return rechazo;
+    }
+
+    final previa = await p.bd.fila(
+      'select $columnasVersion from apk.version v where v.app = @a and v.build = @b',
+      {'a': app['id'], 'b': build},
+    );
+    if (previa != null) {
+      subida.descarta();
+      if (previa['sha256'] == subida.sha256) {
+        return Respuesta.ok({...versionJson(previa, p.urlPublica), 'ya_estaba': true});
+      }
+      return Respuesta.falla(409, 'build_repetida',
+          'La build $build ya está publicada con otro instalador. Sube la build.');
+    }
+
+    almacen.fija(subida, 'msi');
+    final requerido = const ['1', 'true', 'si', 'sí'].contains((q['requerido'] ?? '').toLowerCase());
+    final Map<String, Object?> nueva;
+    try {
+      nueva = await p.bd.transaccion((tx) async {
+        final v = await tx.fila(
+          '''insert into apk.version
+               (app, build, version, requerido, notas, sha256, bytes, paquete, formato,
+                firma_publicador, publicado_por)
+             values (@a, @b, @v, @r, @n, @sha, @bytes, @paq, 'msi', @fp, @por)
+             returning id, build, version, requerido, notas, sha256, bytes, paquete, firma,
+                       min_sdk, target_sdk, descargas, publicado, publicado_por, retirada,
+                       formato, firma_publicador''',
+          {
+            'a': app['id'],
+            'b': build,
+            'v': version,
+            'r': requerido,
+            'n': (q['notas'] ?? '').trim(),
+            'sha': subida.sha256,
+            'bytes': subida.bytes,
+            'paq': paquete.isNotEmpty ? paquete : (app['paquete'] ?? ''),
+            'fp': firma.isEmpty ? null : firma,
+            'por': p.s.firma,
+          },
+        );
+        if (paquete.isNotEmpty) {
+          await tx.ejecuta('update apk.app set paquete = coalesce(paquete, @paq) where id = @a',
+              {'a': app['id'], 'paq': paquete});
+        }
+        return v!;
+      });
+    } catch (e) {
+      await _borraSiHuerfano(p, almacen, subida.sha256, 'msi');
+      rethrow;
+    }
+
+    final ultima = await ultimaVersion(p.bd, app['id'] as int);
+    var avisadas = 0;
+    if (ultima != null && ultima['build'] == build) {
+      avisadas = avisos.anuncia(slug, {'build': build, 'requerido': requerido});
+    }
+    log.info('versiones',
+        '$slug $version+$build (msi) publicada por ${p.s.firma} (${subida.bytes} bytes, avisadas $avisadas)');
+    return Respuesta.creado({...versionJson(nueva, p.urlPublica), 'avisadas': avisadas});
+  }
+
   // Publicar. El cuerpo es el APK tal cual (`curl --data-binary @app.apk`).
   // Lo que se dice por la consulta (`version`, `build`) es opcional y solo se
   // usa para comprobar: lo que manda es lo que trae el APK.
@@ -190,6 +285,7 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
       subida.descarta();
       return Respuesta.falla(400, 'apk_vacio', 'No llegó nada. Manda el APK en el cuerpo.');
     }
+    if (app['plataforma'] == 'windows') return publicaMsi(p, app, subida);
 
     final ApkInfo info;
     try {
@@ -258,7 +354,8 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
                 min_sdk, target_sdk, publicado_por)
              values (@a, @b, @v, @r, @n, @sha, @bytes, @paq, @firma, @min, @target, @por)
              returning id, build, version, requerido, notas, sha256, bytes, paquete, firma,
-                       min_sdk, target_sdk, descargas, publicado, publicado_por, retirada''',
+                       min_sdk, target_sdk, descargas, publicado, publicado_por, retirada,
+                       formato, firma_publicador''',
           {
             'a': app['id'],
             'b': info.build,
@@ -317,7 +414,8 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
                 retirada = case when @ret then coalesce(retirada, now()) else null end
           where id = @i
           returning id, build, version, requerido, notas, sha256, bytes, paquete, firma,
-                    min_sdk, target_sdk, descargas, publicado, publicado_por, retirada''',
+                    min_sdk, target_sdk, descargas, publicado, publicado_por, retirada,
+                    formato, firma_publicador''',
       {
         'i': v['id'],
         'n': c.containsKey('notas') ? p.texto('notas') : v['notas'],
@@ -341,7 +439,7 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
     if (app == null) return noEsta();
     final build = p.enteroParam('build');
     final v = await p.bd.fila(
-      'select id, sha256, retirada from apk.version where app = @a and build = @b',
+      'select id, sha256, retirada, formato from apk.version where app = @a and build = @b',
       {'a': app['id'], 'b': build},
     );
     if (v == null) return Respuesta.falla(404, 'version_no_existe', 'No hay build $build');
@@ -349,7 +447,7 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
       return Respuesta.falla(409, 'no_retirada', 'Retírala primero; borrar no tiene vuelta');
     }
     await p.bd.ejecuta('delete from apk.version where id = @i', {'i': v['id']});
-    await _borraSiHuerfano(p, almacen, v['sha256'] as String);
+    await _borraSiHuerfano(p, almacen, v['sha256'] as String, v['formato'] as String);
     return Respuesta.vacio();
   }, acceso: Acceso.admin);
 
@@ -403,11 +501,32 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
   }, acceso: Acceso.admin);
 }
 
-/// Borra el APK de disco si ninguna versión (de ninguna app) lo usa ya.
-Future<void> _borraSiHuerfano(Peticion p, Almacen almacen, String sha) async {
-  final otro = await p.bd.fila('select 1 from apk.version where sha256 = @s limit 1', {'s': sha});
-  if (otro == null) almacen.borra(sha);
+/// Borra el APK (o el MSI) de disco si ninguna versión (de ninguna app) lo usa ya.
+Future<void> _borraSiHuerfano(Peticion p, Almacen almacen, String sha, [String formato = 'apk']) async {
+  final otro = await p.bd.fila(
+      'select 1 from apk.version where sha256 = @s and formato = @f limit 1', {'s': sha, 'f': formato});
+  if (otro == null) almacen.borra(sha, formato);
 }
+
+/// Los primeros bytes de un MSI (todo archivo «Compound File» de Windows).
+const _firmaCfb = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
+
+Future<bool> _esMsi(Subida s) async {
+  final r = await s.temporal.open();
+  try {
+    final b = await r.read(8);
+    if (b.length < 8) return false;
+    for (var i = 0; i < 8; i++) {
+      if (b[i] != _firmaCfb[i]) return false;
+    }
+    return true;
+  } finally {
+    await r.close();
+  }
+}
+
+/// La firma del publicador: base64 (o base64url), corta. El hub no la interpreta.
+final _firmaPublicadorValida = RegExp(r'^[A-Za-z0-9+/=_-]{16,1024}$');
 
 /// PNG, JPEG o WebP, por sus primeros bytes. No se cree el Content-Type: la
 /// imagen se sirve después a cualquiera, y un SVG puede llevar script.

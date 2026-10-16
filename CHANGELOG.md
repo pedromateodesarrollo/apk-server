@@ -2,6 +2,32 @@
 
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## 0.3.0 — 2026-10-16
+
+Instaladores de Windows. Una app puede ser de Windows y publicar su MSI; los
+programas instalados preguntan y bajan igual que las apps de Android.
+
+### Hub
+
+* **Apps de Windows** (migración `0003_windows.sql`): `POST /v1/apps` acepta
+  `plataforma: "windows"` (por defecto `android`). Su publicación es un MSI
+  (`POST /v1/apps/:app/versiones?build=N&version=X`, el cuerpo es el archivo):
+  el hub no abre el MSI, así que `build` y `version` son obligatorias y solo se
+  comprueba que sea un MSI por sus primeros bytes. `paquete` (opcional) es el
+  UpgradeCode y lo fija la primera versión, como el `applicationId`.
+* **Firma del publicador**: `firma` (opcional, base64) se guarda tal cual y se
+  reparte como `firma_publicador` en la consulta: el programa instalado la
+  verifica con la llave pública que lleva dentro antes de instalar. Un MSI sin
+  firma de código no tiene un sistema que lo haga por él, como Android con el APK.
+* Las versiones dicen su `formato` (`apk` o `msi`); el MSI se baja de
+  `/archivos/<sha256>.msi` (`application/x-msi`) y `/install/:app` lleva a él.
+  La ficha pública de una app dice su `plataforma`.
+
+### Panel
+
+* «Nueva app» pregunta la plataforma; la página `/i/:app` de una app de Windows
+  ofrece «Descargar el instalador» con los pasos de Windows y sin QR.
+
 ## 0.2.1 — 2026-10-09
 
 Correo de salida por organización y, con él, «¿Olvidaste tu clave?». En el

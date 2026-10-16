@@ -27,9 +27,11 @@ class Almacen {
     _subidas.createSync();
   }
 
-  File archivo(String sha) => File('$carpeta${Platform.pathSeparator}$sha.apk');
+  /// El archivo de ese contenido. [formato] es la extensión: `apk` o `msi`.
+  File archivo(String sha, [String formato = 'apk']) =>
+      File('$carpeta${Platform.pathSeparator}$sha.${formato == 'msi' ? 'msi' : 'apk'}');
 
-  bool existe(String sha) => _shaValido(sha) && archivo(sha).existsSync();
+  bool existe(String sha, [String formato = 'apk']) => _shaValido(sha) && archivo(sha, formato).existsSync();
 
   /// Escribe [datos] en un temporal mientras calcula el sha256, sin tener el
   /// APK entero en memoria. Lanza [SubidaGrande] si pasa de [maximo].
@@ -61,8 +63,8 @@ class Almacen {
 
   /// Pasa la subida a su lugar definitivo. Si ese APK ya estaba, el temporal
   /// sobra y se borra: es el mismo contenido.
-  void fija(Subida s) {
-    final destino = archivo(s.sha256);
+  void fija(Subida s, [String formato = 'apk']) {
+    final destino = archivo(s.sha256, formato);
     if (destino.existsSync()) {
       s.descarta();
       return;
@@ -72,9 +74,9 @@ class Almacen {
     s.temporal.renameSync(destino.path);
   }
 
-  void borra(String sha) {
+  void borra(String sha, [String formato = 'apk']) {
     if (!_shaValido(sha)) return;
-    final f = archivo(sha);
+    final f = archivo(sha, formato);
     if (f.existsSync()) f.deleteSync();
   }
 

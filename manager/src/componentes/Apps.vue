@@ -11,6 +11,7 @@ const creando = ref(false)
 const slug = ref('')
 const nombre = ref('')
 const descripcion = ref('')
+const plataforma = ref('android')
 
 async function carga() {
   try {
@@ -29,6 +30,7 @@ async function crea() {
       slug: slug.value.trim().toLowerCase(),
       nombre: nombre.value.trim(),
       descripcion: descripcion.value.trim(),
+      plataforma: plataforma.value,
     })
     location.hash = `#/panel/app/${a.slug}`
   } catch (e) {
@@ -67,6 +69,11 @@ onMounted(carga)
       con distinto <code>applicationId</code> (el de una marca y el genérico),
       son dos apps: Android nunca actualiza uno con el otro.
     </p>
+    <label>Plataforma</label>
+    <select v-model="plataforma">
+      <option value="android">Android (APK)</option>
+      <option value="windows">Windows (instalador MSI)</option>
+    </select>
     <label>Nombre</label>
     <input v-model="nombre" placeholder="Inventario" @input="alNombre" />
     <label>Identificador</label>
