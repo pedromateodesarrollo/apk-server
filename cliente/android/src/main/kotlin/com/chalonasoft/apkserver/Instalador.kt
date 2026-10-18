@@ -23,10 +23,12 @@ import kotlin.concurrent.thread
  * «Permitir de esta fuente» activado para la app. Android cierra la app, la
  * reemplaza y no avisa a nadie. Probado en Android 15.
  *
- * La app NO se vuelve a abrir sola: Android bloquea abrir una pantalla desde
- * el receptor del resultado («Background activity launch blocked», probado en
- * Android 15). Una app con un servicio lo vuelve a levantar con
- * `MY_PACKAGE_REPLACED`; una con pantalla, la persona la abre de nuevo.
+ * Después se VUELVE A ABRIR SOLA si la persona le dio a la app «Mostrar sobre
+ * otras apps» y se instaló con la app al frente ([Reabrir]): sin ese permiso
+ * Android bloquea abrir una pantalla desde el receptor de `MY_PACKAGE_REPLACED`
+ * («Background activity launch blocked», probado en Android 15) y la persona
+ * la abre de nuevo. Una app con un servicio lo vuelve a levantar con
+ * `MY_PACKAGE_REPLACED` igual.
  *
  * Cuando hace falta la persona —Android 11 o menos, sin «Permitir de esta
  * fuente», o Android pide confirmar igual— y se pidió `conDialogo` con la app
@@ -105,6 +107,8 @@ internal object Instalador {
                         app, id, i,
                         PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0),
                     )
+                    // La app al frente: al reemplazarla se vuelve a abrir (Reabrir).
+                    if (alFrente()) Reabrir.marcar(app)
                     sesion.commit(pi.intentSender)
                 }
                 val sesion = id
@@ -113,6 +117,7 @@ internal object Instalador {
                 // proceso: la respuesta llega (si llega) al proceso nuevo.
             } catch (e: Exception) {
                 Log.w(TAG, "No se pudo armar la instalación", e)
+                Reabrir.desmarcar(app)
                 if (id >= 0) {
                     esperando.remove(id)
                     runCatching { instalador.abandonSession(id) }
@@ -124,6 +129,8 @@ internal object Instalador {
 
     /** El instalador de siempre, con el APK por [ApkProvider]. */
     fun abrirInstalador(ctx: Context, apk: File): Boolean = try {
+        // Si la persona confirma, la app se reemplaza y se vuelve a abrir (Reabrir).
+        if (alFrente()) Reabrir.marcar(ctx)
         ctx.startActivity(
             Intent(Intent.ACTION_VIEW)
                 .setDataAndType(ApkProvider.uri(ctx, apk), "application/vnd.android.package-archive")
@@ -156,6 +163,7 @@ internal object Instalador {
                 // Nadie a quien preguntarle ahora: se suelta la sesión. Queda la
                 // notificación de «lista»; al tocarla, la app está al frente.
                 runCatching { ctx.packageManager.packageInstaller.abandonSession(id) }
+                Reabrir.desmarcar(ctx)
                 e?.listo?.invoke("confirmar")
             }
             // Casi siempre llega al proceso NUEVO: el viejo lo cerró Android al
@@ -164,6 +172,7 @@ internal object Instalador {
             else -> {
                 // FAILURE_ABORTED sin nadie esperando es el eco de soltar la sesión.
                 if (e != null) {
+                    Reabrir.desmarcar(ctx)
                     Log.w(TAG, "La instalación falló ($estado): ${intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)}")
                     e.listo("error")
                 }
@@ -179,13 +188,15 @@ class InstalacionReceiver : BroadcastReceiver() {
 }
 
 /**
- * Android terminó de reemplazar la app por la versión nueva: fuera el APK
- * bajado y su notificación de «lista». Sin esto la notificación se quedaba
- * hasta que alguien abriera la app.
+ * Android terminó de reemplazar la app por la versión nueva: se vuelve a abrir
+ * si la instaló el actualizador con la app al frente y hay permiso ([Reabrir]),
+ * y fuera el APK bajado y su notificación de «lista». Sin esto la notificación
+ * se quedaba hasta que alguien abriera la app.
  */
 class ActualizadaReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        Reabrir.alReemplazar(context.applicationContext)
         val p = goAsync()
         thread(name = "apk-server-actualizada") {
             try {

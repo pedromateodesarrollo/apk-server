@@ -2,6 +2,23 @@
 
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## 0.4.0 — 2026-10-18
+
+La app se vuelve a abrir sola después de actualizarse.
+
+### Cliente Android y Flutter
+
+* **Abrir sola tras actualizar.** Con «Mostrar sobre otras apps»
+  (`SYSTEM_ALERT_WINDOW`, que ahora declara la biblioteca y concede la persona),
+  el receptor de `MY_PACKAGE_REPLACED` abre la pantalla de inicio de la app. Solo
+  si la instaló el actualizador con la app al frente (una marca de 10 minutos
+  antes de entregar el APK); sin el permiso todo sigue como antes.
+* Kotlin: `Actualizacion.reabrirSola()` y `pedirReabrirSola()` (abre el ajuste
+  de Android). Flutter: `UpdateService.reabrirSola()`, `pedirReabrirSola()` y el
+  widget `UpdateReabrirSola` («Abrir sola tras actualizar», para «Acerca de»).
+* Los textos de «lista» e «instalando» dicen «si no se vuelve a abrir sola,
+  ábrela de nuevo».
+
 ## 0.3.0 — 2026-10-16
 
 Instaladores de Windows. Una app puede ser de Windows y publicar su MSI; los

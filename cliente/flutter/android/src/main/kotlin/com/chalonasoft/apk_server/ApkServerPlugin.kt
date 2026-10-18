@@ -24,6 +24,8 @@ import java.util.concurrent.TimeUnit
  * - `verificar {forzar, manual}` → cuando el hub contestó
  * - `instalar {conDialogo}` → `{resultado}`
  * - `sinPreguntar` → bool; `estado` → mapa; `equipo` → `{huella, modelo, fabricante, android}`
+ * - `reabrirSola` → bool (¿se abre sola tras actualizar?); `pedirReabrirSola`
+ *   → bool (abrió el ajuste de «Mostrar sobre otras apps»)
  *
  * Android → Dart:
  * - `estado` con cada cambio.
@@ -92,6 +94,8 @@ class ApkServerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 result.success(mapOf("resultado" to r))
             }
             "sinPreguntar" -> result.success(a.sinPreguntar())
+            "reabrirSola" -> result.success(a.reabrirSola())
+            "pedirReabrirSola" -> result.success(a.pedirReabrirSola())
             "estado" -> result.success(a.estado.aMapa())
             "equipo" -> result.success(a.equipo())
             else -> result.notImplemented()

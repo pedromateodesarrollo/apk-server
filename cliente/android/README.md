@@ -16,6 +16,9 @@ Lo que hace, sin que la app tenga que hacer nada más:
 * **Instala sin preguntar** desde Android 12, si la persona le dio una vez a la
   app «Permitir de esta fuente». Si no, al tocar la notificación sale la
   pantalla del sistema (la de dar el permiso, o la de confirmar).
+* **Se vuelve a abrir sola** tras instalarse, si la persona le dio a la app
+  «Mostrar sobre otras apps» (ver abajo). Sin ese permiso Android la cierra y
+  la persona la abre de nuevo.
 * **Recuerda lo bajado.** Si el proceso muere, al volver el APK sigue listo y
   no se baja otra vez. Cuando la app ya se actualizó, borra el APK y la
   notificación.
@@ -134,11 +137,36 @@ cierra antes), `dialogo` (salió la pantalla del sistema), `confirmar`,
 `permiso`, `no_soportado`, `error`, `sin_respuesta`, `sin_apk`, `en_curso` o
 `hace_falta_dialogo`.
 
+## Que se vuelva a abrir sola
+
+Al instalar la versión nueva Android cierra la app, y desde Android 10 no deja
+abrir una pantalla desde segundo plano: el receptor de `MY_PACKAGE_REPLACED`
+no puede («Background activity launch blocked», probado en Android 15). La
+excepción es una app con **«Mostrar sobre otras apps»** (`SYSTEM_ALERT_WINDOW`),
+que concede la persona en los ajustes. Con él, la biblioteca abre la pantalla
+de inicio de la app (`getLaunchIntentForPackage`) en cuanto queda instalada.
+
+```kotlin
+ApkServer.de(this).reabrirSola()        // ¿hay permiso? (antes de Android 10, siempre)
+ApkServer.de(this).pedirReabrirSola()   // abre el ajuste de Android de esta app
+```
+
+Solo se reabre lo que **el actualizador instaló con la app al frente**: justo
+antes de entregarle el APK a Android deja una marca (vale 10 minutos) que el
+receptor gasta. Una instalación con la app detrás (`autoInstalar` de un
+servicio) o de afuera (adb, otra tienda) no abre nada. Si la instalación falla
+o se suelta, la marca se borra.
+
+En Flutter, `UpdateService.reabrirSola()` / `pedirReabrirSola()` y la fila lista
+para «Acerca de», `UpdateReabrirSola(service)`: un interruptor «Abrir sola tras
+actualizar» que lleva al ajuste y, al volver, dice cómo quedó.
+
 ## Lo que pone en el manifiesto de la app
 
 Permisos: `INTERNET`, `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, `POST_NOTIFICATIONS`
 (desde Android 13 lo concede la persona; sin él la app se actualiza igual),
-`REQUEST_INSTALL_PACKAGES` y `UPDATE_PACKAGES_WITHOUT_USER_ACTION`. Además, un
+`REQUEST_INSTALL_PACKAGES`, `UPDATE_PACKAGES_WITHOUT_USER_ACTION` y
+`SYSTEM_ALERT_WINDOW` (solo sirve si la persona lo concede; ver arriba). Además, un
 receptor del resultado de la instalación, otro de `MY_PACKAGE_REPLACED`, la
 pantalla transparente que abre la notificación y un proveedor de solo lectura
 que le pasa el APK al instalador del sistema. Ninguno exportado.

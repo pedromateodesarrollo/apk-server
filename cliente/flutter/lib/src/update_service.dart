@@ -7,12 +7,13 @@ import 'package:flutter/widgets.dart';
 /// cerrar sola en unos segundos.
 enum UpdateFase { idle, verificando, descargando, listo, instalando, error }
 
-/// Lo que se le dice a la persona antes de instalar. La app NO vuelve a
-/// abrirse sola: Android no deja abrir una pantalla desde el aviso de que
+/// Lo que se le dice a la persona antes de instalar. La app vuelve a abrirse
+/// sola solo si tiene «Mostrar sobre otras apps» ([UpdateService.reabrirSola]):
+/// sin ese permiso Android no deja abrir una pantalla desde el aviso de que
 /// terminó de instalar (probado en Android 15), así que hay que decírselo.
 const kUpdateTextoListo =
-    'Al instalar, la app se cierra. Ábrela de nuevo y ya estará en la versión '
-    'nueva.';
+    'Al instalar, la app se cierra. Si no se vuelve a abrir sola, ábrela de '
+    'nuevo y ya estará en la versión nueva.';
 
 /// El texto de «lista» con la nota de la app, si trae una.
 String updateTextoListo(String nota) =>
@@ -31,8 +32,8 @@ const kUpdateEsperasReintento = [
 
 /// Mientras Android instala sin preguntar.
 const kUpdateTextoInstalando =
-    'La app se va a cerrar sola en unos segundos. Ábrela de nuevo y ya estará '
-    'en la versión nueva.';
+    'La app se va a cerrar sola en unos segundos. Si no se vuelve a abrir sola, '
+    'ábrela de nuevo y ya estará en la versión nueva.';
 
 @immutable
 class UpdateEstado {
@@ -155,8 +156,8 @@ class UpdateService {
   final Map<String, Object?> Function()? contexto;
 
   /// Si `true`, al terminar la descarga instala sola. En Android 12+ con
-  /// «Permitir de esta fuente» eso es SIN PREGUNTAR: la app se cierra (y no se
-  /// vuelve a abrir sola). Si Android pide confirmar, abre su diálogo, pero
+  /// «Permitir de esta fuente» eso es SIN PREGUNTAR: la app se cierra (y se
+  /// vuelve a abrir sola solo si estaba al frente y tiene [reabrirSola]). Si Android pide confirmar, abre su diálogo, pero
   /// solo con la app al frente. Una vez por versión y por proceso.
   final bool autoInstalar;
 
@@ -296,6 +297,30 @@ class UpdateService {
     if (!await _prepara()) return false;
     try {
       return await _canal.invokeMethod<bool>('sinPreguntar') ?? false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  /// ¿La app se vuelve a abrir sola después de actualizarse? Hace falta que
+  /// la persona le haya dado «Mostrar sobre otras apps» (desde Android 10). Se
+  /// reabre solo lo que el actualizador instaló con la app al frente.
+  Future<bool> reabrirSola() async {
+    if (!await _prepara()) return false;
+    try {
+      return await _canal.invokeMethod<bool>('reabrirSola') ?? false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  /// Abre el ajuste de Android de «Mostrar sobre otras apps» de esta app, para
+  /// darlo o quitarlo. `false` si no se pudo abrir. Al volver, preguntar otra
+  /// vez con [reabrirSola] ([UpdateReabrirSola] lo hace solo).
+  Future<bool> pedirReabrirSola() async {
+    if (!await _prepara()) return false;
+    try {
+      return await _canal.invokeMethod<bool>('pedirReabrirSola') ?? false;
     } on PlatformException {
       return false;
     }

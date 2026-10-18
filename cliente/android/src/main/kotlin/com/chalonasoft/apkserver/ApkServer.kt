@@ -179,6 +179,15 @@ class Actualizacion internal constructor(private val ctx: Context) {
     /** ¿Instalar ahora iría sin preguntar? (Android 12+ y «Permitir de esta fuente») */
     fun sinPreguntar(): Boolean = Instalador.sinPreguntar(ctx)
 
+    /**
+     * ¿La app se vuelve a abrir sola después de actualizarse? Hace falta que la
+     * persona le dé «Mostrar sobre otras apps» (desde Android 10). Ver [Reabrir].
+     */
+    fun reabrirSola(): Boolean = Reabrir.permitido(ctx)
+
+    /** Abre el ajuste de Android de «Mostrar sobre otras apps» de esta app. false si no se pudo. */
+    fun pedirReabrirSola(): Boolean = Reabrir.abrirAjustes(ctx)
+
     /** Lo que el equipo cuenta de sí en cada consulta. */
     @SuppressLint("HardwareIds")
     fun equipo(): Map<String, Any?> = mapOf(

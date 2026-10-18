@@ -11,13 +11,18 @@
          ACCESS_NETWORK_STATE: saber si la red tiene medidor y enterarse de que
          volvió (el socket se rehace y la descarga cortada sigue ya).
          POST_NOTIFICATIONS: el aviso de «lista». Desde Android 13 lo tiene
-         que conceder la persona; sin él la app se actualiza igual. -->
+         que conceder la persona; sin él la app se actualiza igual.
+         SYSTEM_ALERT_WINDOW: «Mostrar sobre otras apps». Con él la app se
+         vuelve a abrir sola tras actualizarse (Android no deja abrir una
+         pantalla desde segundo plano sin él). Lo concede la persona en los
+         ajustes, si la app se lo pide; sin él todo sigue igual. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application>
         <!-- De dónde se actualiza la app, y a dónde se publica: `apk-publicar`
@@ -41,7 +46,9 @@
             android:name="com.chalonasoft.apkserver.InstalacionReceiver"
             android:exported="false" />
 
-        <!-- La app se actualizó: se borra el APK y la notificación de «lista». -->
+        <!-- La app se actualizó: se vuelve a abrir (si hay permiso y la
+             instaló el actualizador con la app al frente) y se borra el APK y
+             la notificación de «lista». -->
         <receiver
             android:name="com.chalonasoft.apkserver.ActualizadaReceiver"
             android:exported="false">

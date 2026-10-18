@@ -5,12 +5,14 @@
 /// en segundo plano, avisa con una notificación cuando está lista y la instala
 /// —sin diálogo en Android 12+ si la persona ya le dio «Permitir de esta
 /// fuente» a la app—. Los widgets ([UpdateBanner], [UpdateTarjeta],
-/// [UpdateAccion]) muestran el estado.
+/// [UpdateAccion]) muestran el estado, y [UpdateReabrirSola] pide el permiso
+/// para que la app se vuelva a abrir sola tras actualizarse.
 ///
 /// Para publicar: `dart run apk_server_flutter:publicar --apk <archivo>`.
 library;
 
 export 'src/update_accion.dart';
 export 'src/update_banner.dart';
+export 'src/update_reabrir.dart';
 export 'src/update_service.dart';
 export 'src/update_tarjeta.dart';
