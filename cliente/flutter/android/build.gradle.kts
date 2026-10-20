@@ -10,7 +10,7 @@
 // Sin `buildscript`: el plugin de Android y el de Kotlin los pone la app que lo
 // usa (su settings.gradle.kts), y así no se mezclan dos versiones de AGP.
 group = "com.chalonasoft.apk_server"
-version = "0.2.0"
+version = "0.4.0"
 
 plugins {
     id("com.android.library")

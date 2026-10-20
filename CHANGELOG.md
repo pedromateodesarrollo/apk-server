@@ -2,6 +2,39 @@
 
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## 0.4.0 — 2026-10-19
+
+La app vuelve a abrirse sola después de actualizarse (cliente de Android y de
+Flutter; el hub no cambia).
+
+Instalar una versión nueva mata el proceso y Android no lo reabre. Abrir la
+pantalla desde el receptor de `MY_PACKAGE_REPLACED` lo bloquea Android 10+
+(`Background activity launch blocked`). Medido en un Samsung A55 con Android 16:
+`startActivity` desde el receptor, desde un servicio en primer plano y desde un
+`PendingIntent` de actividad entregado por el instalador quedan bloqueados; una
+notificación de pantalla completa con la pantalla encendida solo avisa. Lo que
+sí pasa es una **ventana transparente de 1 px** (`TYPE_APPLICATION_OVERLAY`)
+visible: con ella `startActivity` se permite (`BAL_ALLOW_NON_APP_VISIBLE_WINDOW`),
+y esa ventana exige que la persona active **«Mostrar sobre otras apps»** para la
+app, una vez, en Ajustes.
+
+* **Se abre sola** si la app tiene ese permiso; antes de Android 10, siempre.
+* **Si no, una notificación** «<app> se actualizó — toca para abrirla» (con
+  pantalla completa, si la pantalla está apagada o bloqueada) y un botón «Que se
+  abra sola» que lleva a Ajustes. Se quita en cuanto la app se abre.
+* **Un aviso, una sola vez**, al iniciar: «Que <app> se abra sola al
+  actualizarse», con un toque a Ajustes. Todo sin que la app haga nada más.
+* La decisión se anota en disco ANTES de instalar y vale 10 min: el proceso que
+  recibe `MY_PACKAGE_REPLACED` es otro y no conoce los ajustes. Si la instalación
+  no sigue (falla, hace falta confirmar) se borra. Una app sin pantalla de
+  entrada (un servicio) no se abre.
+* Ajustes: `reabrir` (`true`) y `avisarReabrirSola` (`true`); en Flutter,
+  `UpdateService(reabrir: …)`, `reabreSola()` y `pedirReabrirSola()`; en
+  Android, `Actualizacion.reabreSola` y `pedirReabrirSola(context)`. El intent
+  de apertura lleva el extra `com.chalonasoft.apkserver.REABIERTA_TRAS_ACTUALIZAR`.
+* Permisos nuevos en el manifiesto de la biblioteca: `SYSTEM_ALERT_WINDOW` y
+  `USE_FULL_SCREEN_INTENT`.
+
 ## 0.3.0 — 2026-10-16
 
 Instaladores de Windows. Una app puede ser de Windows y publicar su MSI; los

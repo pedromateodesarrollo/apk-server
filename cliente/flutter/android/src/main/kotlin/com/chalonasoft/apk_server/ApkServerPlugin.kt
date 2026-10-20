@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit
  * - `iniciar`, `detener`, `alVolverAlFrente`
  * - `verificar {forzar, manual}` → cuando el hub contestó
  * - `instalar {conDialogo}` → `{resultado}`
- * - `sinPreguntar` → bool; `estado` → mapa; `equipo` → `{huella, modelo, fabricante, android}`
+ * - `reabreSola` → bool; `pedirReabrirSola`; `sinPreguntar` → bool; `estado` → mapa; `equipo` → `{huella, modelo, fabricante, android}`
  *
  * Android → Dart:
  * - `estado` con cada cambio.
@@ -92,6 +92,11 @@ class ApkServerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 result.success(mapOf("resultado" to r))
             }
             "sinPreguntar" -> result.success(a.sinPreguntar())
+            "reabreSola" -> result.success(a.reabreSola)
+            "pedirReabrirSola" -> {
+                a.pedirReabrirSola(ctx)
+                result.success(null)
+            }
             "estado" -> result.success(a.estado.aMapa())
             "equipo" -> result.success(a.equipo())
             else -> result.notImplemented()
@@ -103,6 +108,7 @@ class ApkServerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         call.argument<String>("hub")?.let { aj.hub = it }
         call.argument<String>("app")?.let { aj.app = it }
         call.argument<Boolean>("avisos")?.let { aj.avisos = it }
+        call.argument<Boolean>("reabrir")?.let { aj.reabrir = it }
         call.argument<Number>("intervaloMs")?.let { aj.intervaloMs = it.toLong() }
         call.argument<Number>("minEntreChequeosMs")?.let { aj.minEntreChequeosMs = it.toLong() }
         call.argument<List<Number>>("esperasMs")?.let { l -> aj.esperasReintentoMs = l.map { it.toLong() } }

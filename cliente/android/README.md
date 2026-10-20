@@ -16,6 +16,9 @@ Lo que hace, sin que la app tenga que hacer nada más:
 * **Instala sin preguntar** desde Android 12, si la persona le dio una vez a la
   app «Permitir de esta fuente». Si no, al tocar la notificación sale la
   pantalla del sistema (la de dar el permiso, o la de confirmar).
+* **Vuelve a abrir la app** al terminar de instalar (Android la cierra y no la
+  reabre): sola si la app tiene «Mostrar sobre otras apps»; si no, con una
+  notificación «se actualizó — toca para abrirla». Ver «Que la app se reabra».
 * **Recuerda lo bajado.** Si el proceso muere, al volver el APK sigue listo y
   no se baja otra vez. Cuando la app ya se actualizó, borra el APK y la
   notificación.
@@ -110,7 +113,9 @@ README principal.
 | `minEntreChequeosMs` | 5 min | Freno entre consultas que no son a pedido. |
 | `esperasReintentoMs` | 5 s, 15 s, 30 s, 1 min, 2 min, 5 min | Entre un corte de la descarga y el siguiente intento. La última se repite. |
 | `soloWifi` | `false` | De fondo, bajar solo sin medidor. A pedido (`verificar(manual = true)`) baja igual. |
-| `autoInstalar` | `false` | Al terminar, instalar si va sin preguntar. **Instalar cierra la app.** |
+| `autoInstalar` | `false` | Al terminar, instalar si va sin preguntar. **Instalar cierra la app** (y se reabre, ver `reabrir`). |
+| `reabrir` | `true` | Reabrir la app al terminar de instalar. |
+| `avisarReabrirSola` | `true` | Una vez, avisar que activando «Mostrar sobre otras apps» se abre sola. |
 | `puedeInstalar` | `{ true }` | Con `autoInstalar`, si en ese momento se puede. |
 | `notificarLista` | `true` | La notificación de «lista». |
 | `notificarDescarga` | `false` | Una notificación callada con el avance. |
@@ -119,6 +124,34 @@ README principal.
 | `pingSegundos` | 30 | Ping del socket. Más espaciado gasta menos batería. |
 | `esperaMaxAvisosMs` | 32 s | Tope de espera entre reconexiones del socket. |
 | `sinDatosMs` | 45 s | Tanto sin recibir un byte es un corte. |
+
+## Que la app se reabra sola
+
+Instalar mata el proceso y Android no lo reabre; abrir una pantalla desde el
+receptor de `MY_PACKAGE_REPLACED` lo bloquea Android 10+. Probado en un Samsung
+A55 (Android 16), midiendo cada camino:
+
+| | |
+|---|---|
+| `startActivity` desde el receptor | bloqueado |
+| desde un servicio en primer plano | bloqueado |
+| `PendingIntent` de actividad como destino del instalador | bloqueado |
+| notificación de pantalla completa, con la pantalla encendida | solo avisa |
+| **ventana transparente de 1 px + «Mostrar sobre otras apps»** | **abre** |
+
+Por eso (`Reabrir.kt`): con el permiso «Mostrar sobre otras apps» la app se abre
+sola, en la pantalla de entrada y con el extra
+`com.chalonasoft.apkserver.REABIERTA_TRAS_ACTUALIZAR`; sin él queda una
+notificación «se actualizó — toca para abrirla» (pantalla completa si la
+pantalla está apagada) con el botón «Que se abra sola». Antes de Android 10 abre
+directo. Una vez, al iniciar, una notificación dice que se active el permiso.
+
+El permiso lo da la persona en Ajustes; no hay forma de concedérselo desde la
+app. `ApkServer.de(ctx).reabreSola` dice si lo tiene y
+`pedirReabrirSola(context)` abre la pantalla de Ajustes. Se apaga con
+`reabrir = false` (y el aviso con `avisarReabrirSola = false`). La decisión se
+anota en disco antes de instalar (vale 10 min), porque el proceso que recibe el
+aviso es otro.
 
 ## Estado
 
@@ -138,7 +171,7 @@ cierra antes), `dialogo` (salió la pantalla del sistema), `confirmar`,
 
 Permisos: `INTERNET`, `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, `POST_NOTIFICATIONS`
 (desde Android 13 lo concede la persona; sin él la app se actualiza igual),
-`REQUEST_INSTALL_PACKAGES` y `UPDATE_PACKAGES_WITHOUT_USER_ACTION`. Además, un
+`REQUEST_INSTALL_PACKAGES`, `UPDATE_PACKAGES_WITHOUT_USER_ACTION`, `SYSTEM_ALERT_WINDOW` y `USE_FULL_SCREEN_INTENT` (reabrir la app). Además, un
 receptor del resultado de la instalación, otro de `MY_PACKAGE_REPLACED`, la
 pantalla transparente que abre la notificación y un proveedor de solo lectura
 que le pasa el APK al instalador del sistema. Ninguno exportado.

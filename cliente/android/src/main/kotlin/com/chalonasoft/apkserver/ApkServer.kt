@@ -76,6 +76,7 @@ object ApkServer {
      */
     internal fun alArrancar(ctx: Context) {
         try {
+            (ctx as? android.app.Application)?.let { Reabrir.vigilarApertura(it) }
             de(ctx).restaurar()
         } catch (e: Exception) {
             Log.w(TAG, "Al arrancar", e)
@@ -130,7 +131,14 @@ class Actualizacion internal constructor(private val ctx: Context) {
     fun iniciar() {
         nucleo.iniciar()
         vigilarRed()
+        io.execute { runCatching { Reabrir.avisarPermiso(ctx, ajustes) } }
     }
+
+    /** ¿Esta app se abre sola después de actualizarse? (Antes de Android 10 siempre; después, con «Mostrar sobre otras apps».) */
+    val reabreSola: Boolean get() = ajustes.reabrir && Reabrir.puedeSola(ctx)
+
+    /** Lleva a la pantalla de Ajustes donde se activa «Mostrar sobre otras apps» para esta app. */
+    fun pedirReabrirSola(desde: Context) = Reabrir.pedirPermiso(desde)
 
     /** Para el sondeo, cierra el socket y deja de reintentar. */
     fun detener() {
@@ -403,8 +411,16 @@ class Actualizacion internal constructor(private val ctx: Context) {
         override fun guardarListo(v: VersionDisponible?, apk: File?) = this@Actualizacion.guardarListo(v, apk)
         override fun despierto(trabajo: () -> Unit) = this@Actualizacion.despierto(trabajo)
         override fun sinPreguntar() = Instalador.sinPreguntar(ctx)
-        override fun instalar(apk: File, version: String, conDialogo: Boolean, listo: (String) -> Unit) =
-            Instalador.instalar(ctx, apk, conDialogo, listo)
+        override fun instalar(apk: File, version: String, conDialogo: Boolean, listo: (String) -> Unit) {
+            // Instalar mata el proceso: lo que va a hacer falta después se anota antes.
+            Reabrir.marcar(ctx, ajustes)
+            Instalador.instalar(ctx, apk, conDialogo) { r ->
+                // Con «dialogo» la persona está confirmando y la app se actualizará; con
+                // «sin_respuesta» Android sigue instalando. Lo demás: la app sigue abierta.
+                if (r != "dialogo" && r != "sin_respuesta") Reabrir.desmarcar(ctx)
+                listo(r)
+            }
+        }
 
         override fun alCambiar(e: Estado) {
             runCatching { Notificaciones.mostrar(ctx, ajustes, e) }

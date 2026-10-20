@@ -44,6 +44,17 @@ class Ajustes {
     /** Con [autoInstalar], además tiene que devolver true en el momento. */
     var puedeInstalar: () -> Boolean = { true }
 
+    /**
+     * Después de instalar, volver a abrir la app (instalar la cierra y Android no
+     * la reabre). Sola si la app tiene «Mostrar sobre otras apps»; si no, una
+     * notificación «se actualizó — toca para abrirla». Una app sin pantalla de
+     * entrada no se abre. Ver [Reabrir].
+     */
+    var reabrir: Boolean = true
+
+    /** Una vez, avisar (notificación) que activando «Mostrar sobre otras apps» se abre sola. */
+    var avisarReabrirSola: Boolean = true
+
     /** La notificación de «Actualización X lista — toca para instalar». */
     var notificarLista: Boolean = true
 

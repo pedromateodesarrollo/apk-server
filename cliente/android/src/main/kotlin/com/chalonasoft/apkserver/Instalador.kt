@@ -23,10 +23,10 @@ import kotlin.concurrent.thread
  * «Permitir de esta fuente» activado para la app. Android cierra la app, la
  * reemplaza y no avisa a nadie. Probado en Android 15.
  *
- * La app NO se vuelve a abrir sola: Android bloquea abrir una pantalla desde
- * el receptor del resultado («Background activity launch blocked», probado en
- * Android 15). Una app con un servicio lo vuelve a levantar con
- * `MY_PACKAGE_REPLACED`; una con pantalla, la persona la abre de nuevo.
+ * Android no la vuelve a abrir: eso lo hace [Reabrir] desde
+ * `MY_PACKAGE_REPLACED` (sola con «Mostrar sobre otras apps»; si no, con una
+ * notificación). Abrir una pantalla desde el receptor del resultado, sin más,
+ * lo bloquea Android («Background activity launch blocked»).
  *
  * Cuando hace falta la persona —Android 11 o menos, sin «Permitir de esta
  * fuente», o Android pide confirmar igual— y se pidió `conDialogo` con la app
@@ -187,12 +187,10 @@ class ActualizadaReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val p = goAsync()
-        thread(name = "apk-server-actualizada") {
-            try {
-                ApkServer.alArrancar(context.applicationContext)
-            } finally {
-                p.finish()
-            }
-        }
+        val app = context.applicationContext
+        // Primero lo que importa a la persona: volver a abrir la app. Tiene que
+        // ser en el hilo principal, y el proceso se mantiene vivo hasta que acabe.
+        Reabrir.alReemplazar(app) { p.finish() }
+        thread(name = "apk-server-actualizada") { ApkServer.alArrancar(app) }
     }
 }

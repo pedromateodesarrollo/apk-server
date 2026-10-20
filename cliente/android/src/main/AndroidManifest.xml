@@ -18,6 +18,13 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+    <!-- Volver a abrir la app sola después de actualizarse (Reabrir.kt): con
+         «Mostrar sobre otras apps» una ventana de 1 px le da derecho a abrir
+         su pantalla desde segundo plano; sin él queda la notificación (con
+         pantalla completa, si la pantalla está apagada). La persona los
+         concede una vez en Ajustes; sin ellos la app se actualiza igual. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application>
         <!-- De dónde se actualiza la app, y a dónde se publica: `apk-publicar`

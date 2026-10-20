@@ -136,6 +136,7 @@ class UpdateService {
     this.autoInstalar = false,
     this.puedeInstalar,
     this.avisos = true,
+    this.reabrir = true,
     this.minEntreChequeos = const Duration(minutes: 5),
     this.intervaloSondeo = const Duration(hours: 1),
     this.esperasReintento = kUpdateEsperasReintento,
@@ -155,8 +156,8 @@ class UpdateService {
   final Map<String, Object?> Function()? contexto;
 
   /// Si `true`, al terminar la descarga instala sola. En Android 12+ con
-  /// «Permitir de esta fuente» eso es SIN PREGUNTAR: la app se cierra (y no se
-  /// vuelve a abrir sola). Si Android pide confirmar, abre su diálogo, pero
+  /// «Permitir de esta fuente» eso es SIN PREGUNTAR: la app se cierra y vuelve a
+  /// abrirse ([reabrir]). Si Android pide confirmar, abre su diálogo, pero
   /// solo con la app al frente. Una vez por versión y por proceso.
   final bool autoInstalar;
 
@@ -168,6 +169,13 @@ class UpdateService {
   /// Abrir el WebSocket del hub en [iniciar]. Con él, una versión publicada
   /// llega al instante y el panel ve el equipo conectado.
   final bool avisos;
+
+  /// Después de instalar, volver a abrir la app (instalar la cierra). Sola si
+  /// la app tiene «Mostrar sobre otras apps» ([reabreSola]); si no, una
+  /// notificación «se actualizó — toca para abrirla». Con la app abierta en
+  /// una pantalla propia, la abre en la de entrada y le pone el extra
+  /// `com.chalonasoft.apkserver.REABIERTA_TRAS_ACTUALIZAR` al intent.
+  final bool reabrir;
 
   final Duration minEntreChequeos;
   final Duration intervaloSondeo;
@@ -211,6 +219,7 @@ class UpdateService {
             if (servidor != null) 'hub': servidor,
             if (app != null) 'app': app,
             'avisos': avisos,
+            'reabrir': reabrir,
             'intervaloMs': intervaloSondeo.inMilliseconds,
             'minEntreChequeosMs': minEntreChequeos.inMilliseconds,
             'esperasMs': [for (final d in esperasReintento) d.inMilliseconds],
@@ -289,6 +298,21 @@ class UpdateService {
   /// salta, para el botón manual.
   Future<void> verificarYDescargar({bool forzar = false}) =>
       _llamar('verificar', {'forzar': forzar, 'manual': forzar});
+
+  /// ¿La app se abre sola después de actualizarse? Antes de Android 10, siempre;
+  /// después, solo con «Mostrar sobre otras apps» activado para la app.
+  Future<bool> reabreSola() async {
+    if (!await _prepara()) return false;
+    try {
+      return await _canal.invokeMethod<bool>('reabreSola') ?? false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  /// Abre la pantalla de Ajustes donde se activa «Mostrar sobre otras apps»
+  /// para esta app (lo que hace que [reabreSola] sea `true`).
+  Future<void> pedirReabrirSola() => _llamar('pedirReabrirSola');
 
   /// ¿Instalar ahora iría sin preguntar? Android 12+ y la persona con
   /// «Permitir de esta fuente» activado para la app.
