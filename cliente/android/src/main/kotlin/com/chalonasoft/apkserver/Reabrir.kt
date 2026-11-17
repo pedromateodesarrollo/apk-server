@@ -232,12 +232,22 @@ internal object Reabrir {
         })
     }
 
+    /** ¿El manifiesto final de la app pide SYSTEM_ALERT_WINDOW? */
+    private fun declaraVentana(ctx: Context): Boolean = runCatching {
+        @Suppress("DEPRECATION")
+        val info = ctx.packageManager.getPackageInfo(ctx.packageName, android.content.pm.PackageManager.GET_PERMISSIONS)
+        info.requestedPermissions?.contains(android.Manifest.permission.SYSTEM_ALERT_WINDOW) == true
+    }.getOrDefault(true)
+
     /**
      * Una sola vez en la vida de la instalación: si la app no puede abrirse
      * sola, una notificación dice qué activar (un toque lleva a Ajustes).
      */
     fun avisarPermiso(ctx: Context, ajustes: Ajustes) {
         if (!ajustes.reabrir || !ajustes.avisarReabrirSola || puedeSola(ctx) || entrada(ctx) == null) return
+        // La app quitó el permiso de su manifiesto (`tools:node="remove"`, por
+        // Play Protect): Ajustes no lo ofrece, no se pide.
+        if (!declaraVentana(ctx)) return
         val p = prefs(ctx)
         if (p.getBoolean(AVISO_PERMISO, false) || !puedePublicar(ctx)) return
         p.edit().putBoolean(AVISO_PERMISO, true).apply()

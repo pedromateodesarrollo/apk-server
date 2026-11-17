@@ -2,6 +2,12 @@
 
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## 0.5.1 — 2026-11-17
+
+* **Android:** el aviso único de «Mostrar sobre otras apps» no sale si la app
+  quitó `SYSTEM_ALERT_WINDOW` de su manifiesto (`tools:node="remove"`, que
+  hace falta para que Play Protect no la marque como dañina).
+
 ## 0.5.0 — 2026-11-17
 
 Actualización con aviso: la versión se baja sola y, antes de instalarla, la

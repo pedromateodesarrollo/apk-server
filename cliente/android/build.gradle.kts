@@ -26,7 +26,7 @@ extensions.configure<org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtensi
 }
 
 group = "com.chalonasoft.apkserver"
-version = "0.5.0"
+version = "0.5.1"
 
 android {
     namespace = "com.chalonasoft.apkserver"
