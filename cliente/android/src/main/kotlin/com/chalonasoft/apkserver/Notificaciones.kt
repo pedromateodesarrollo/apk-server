@@ -25,7 +25,12 @@ internal object Notificaciones {
 
     fun mostrar(ctx: Context, ajustes: Ajustes, e: Estado) {
         when (e.fase) {
-            Fase.LISTO -> if (ajustes.notificarLista) lista(ctx, ajustes, e)
+            // La cuenta regresiva sale siempre: es el aviso que se le prometió a la persona.
+            Fase.LISTO -> if (e.instalaEn > System.currentTimeMillis()) {
+                cuentaRegresiva(ctx, ajustes, e)
+            } else if (ajustes.notificarLista || e.instalaEn > 0) {
+                lista(ctx, ajustes, e)
+            }
             Fase.DESCARGANDO, Fase.ESPERANDO_WIFI -> if (ajustes.notificarDescarga) avance(ctx, ajustes, e)
             Fase.ERROR -> if (ajustes.notificarDescarga && e.version != null) avance(ctx, ajustes, e)
             Fase.AL_DIA -> quitar(ctx)
@@ -67,6 +72,41 @@ internal object Notificaciones {
                 .setOnlyAlertOnce(true)
                 .build(),
         )
+    }
+
+    /**
+     * «Actualización X en 10 min»: el reloj de la notificación cuenta hacia
+     * atrás solo (Android 7+) hasta [Estado.instalaEn]. Tocarla instala ya.
+     */
+    private fun cuentaRegresiva(ctx: Context, ajustes: Ajustes, e: Estado) {
+        val minutos = ((e.instalaEn - System.currentTimeMillis() + 59_999) / 60_000).coerceAtLeast(1)
+        val hora = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(e.instalaEn))
+        val titulo = "Actualización ${e.version ?: ""} en $minutos min".replace("  ", " ")
+        val texto = if (e.falta == null) {
+            "Termina lo que estás haciendo: a las $hora se instala sola y la app se reinicia. Toca para instalarla ya."
+        } else {
+            "Termina lo que estás haciendo: a las $hora se abre el instalador y tienes que tocar «Actualizar». " +
+                "Toca para instalarla ya."
+        }
+        val pi = PendingIntent.getActivity(
+            ctx, 0,
+            Intent(ctx, InstalarActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val b = constructor(ctx, CANAL_LISTA)
+            .setSmallIcon(icono(ajustes))
+            .setContentTitle(titulo)
+            .setContentText(texto)
+            .setStyle(Notification.BigTextStyle().bigText(texto))
+            .setContentIntent(pi)
+            .setWhen(e.instalaEn)
+            .setShowWhen(true)
+            .setUsesChronometer(true)
+            .setOngoing(true)
+            .setAutoCancel(false)
+            .setOnlyAlertOnce(true)
+        if (Build.VERSION.SDK_INT >= 24) b.setChronometerCountDown(true)
+        publicar(ctx, b.build())
     }
 
     private fun avance(ctx: Context, ajustes: Ajustes, e: Estado) {

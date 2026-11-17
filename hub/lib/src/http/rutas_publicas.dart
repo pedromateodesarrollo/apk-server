@@ -151,6 +151,9 @@ Future<Map<String, Object?>> _respuesta(Peticion p, int app, int build) async {
     'build_actual': build,
     'actualizar': actualizar,
     'requerido': actualizar && await hayRequerida(p.bd, app, build),
+    // Minutos de cuenta regresiva, en el equipo, antes de instalar lo bajado
+    // (0 = la app decide cuándo). Ver migraciones/0004.
+    'aviso_minutos': await avisoMinutos(p.bd, app),
     'version': ultima == null ? null : _publica(versionJson(ultima, p.urlPublica)),
   };
 }

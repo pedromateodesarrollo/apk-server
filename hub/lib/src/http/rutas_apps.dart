@@ -33,7 +33,7 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
     if (!p.s.puede('leer')) return sinPermiso('leer');
     final filas = await p.bd.filas(
       '''select a.id, a.slug, a.nombre, a.descripcion, a.paquete, a.firma, a.plataforma,
-                a.icono is not null as tiene_icono, a.creado,
+                a.aviso_minutos, a.icono is not null as tiene_icono, a.creado,
                 u.build as ultima_build, u.version as ultima_version,
                 u.publicado as ultima_publicada, u.requerido as ultima_requerida,
                 (select count(*) from apk.version v where v.app = a.id)::int as versiones,
@@ -94,13 +94,18 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
     if (app == null) return noEsta();
     final nombre = p.cuerpo.containsKey('nombre') ? p.texto('nombre') : app['nombre'];
     if (nombre == '') return Respuesta.falla(400, 'falta_nombre', 'El nombre no puede quedar vacío');
+    final aviso = p.cuerpo.containsKey('aviso_minutos') ? p.entero('aviso_minutos') : app['aviso_minutos'] as int?;
+    if (aviso == null || aviso < 0 || aviso > 240) {
+      return Respuesta.falla(400, 'aviso_minutos', 'aviso_minutos va de 0 (sin aviso) a 240');
+    }
     final r = await p.bd.fila(
-      '''update apk.app set nombre = @n, descripcion = @d where id = @i
-         returning slug, nombre, descripcion''',
+      '''update apk.app set nombre = @n, descripcion = @d, aviso_minutos = @m where id = @i
+         returning slug, nombre, descripcion, aviso_minutos''',
       {
         'i': app['id'],
         'n': nombre,
         'd': p.cuerpo.containsKey('descripcion') ? p.texto('descripcion') : app['descripcion'],
+        'm': aviso,
       },
     );
     return Respuesta.ok(r);

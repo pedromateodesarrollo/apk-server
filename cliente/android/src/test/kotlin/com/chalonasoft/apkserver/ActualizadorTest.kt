@@ -29,6 +29,8 @@ class ActualizadorTest {
         var build = 80L
         var medido = false
         var sinPreguntar = true
+        var alFrente = false
+        var instalaEnGuardado = 0L
         var ultimo = 0L
         var listoGuardado: Pair<VersionDisponible, File>? = null
 
@@ -51,6 +53,10 @@ class ActualizadorTest {
             listoGuardado = if (v != null && apk != null) v to apk else null
         }
         override fun sinPreguntar() = sinPreguntar
+        override fun puedeAbrirPantalla() = alFrente
+        override fun guardarInstalaEn(ms: Long) {
+            instalaEnGuardado = ms
+        }
         override fun instalar(apk: File, version: String, conDialogo: Boolean, listo: (String) -> Unit) {
             instalaciones += conDialogo
             respuesta?.let { r -> io.execute { listo(r) } }
@@ -110,6 +116,46 @@ class ActualizadorTest {
         assertEquals(84L, p.listoGuardado?.first?.build)
         assertTrue(p.estados.any { it.fase == Fase.VERIFICANDO })
         assertTrue(p.estados.any { it.fase == Fase.DESCARGANDO })
+    }
+
+    @Test
+    fun `con aviso del hub no instala hasta acabar la cuenta y entonces sí, sin preguntar`() {
+        hub.avisoMinutos = 10
+        ajustes.minutoMs = 40 // 10 «minutos» = 400 ms
+        ajustes.autoInstalar = true // el aviso manda sobre esto
+        a.verificar(forzar = true)
+        val e = esperar { it.fase == Fase.LISTO }
+        assertTrue("trae la hora de instalar", e.instalaEn > System.currentTimeMillis())
+        assertEquals(e.instalaEn, p.instalaEnGuardado)
+        Thread.sleep(150)
+        assertTrue("antes de la hora no instala", p.instalaciones.isEmpty())
+        esperar { it.fase == Fase.INSTALANDO }
+        assertEquals(listOf(true), p.instalaciones.toList())
+    }
+
+    @Test
+    fun `con aviso, sin permiso y la app detrás, el instalador sale al volver al frente`() {
+        hub.avisoMinutos = 1
+        ajustes.minutoMs = 100
+        p.sinPreguntar = false
+        p.respuesta = "dialogo"
+        a.verificar(forzar = true)
+        esperar { it.fase == Fase.LISTO && it.instalaEn > 0 }
+        Thread.sleep(250)
+        calmar()
+        assertTrue("detrás no se puede abrir nada", p.instalaciones.isEmpty())
+        a.alVolverAlFrente()
+        calmar()
+        assertEquals(listOf(true), p.instalaciones.toList())
+    }
+
+    @Test
+    fun `la app pisa el aviso del hub con cero`() {
+        hub.avisoMinutos = 10
+        ajustes.avisoMinutos = 0
+        a.verificar(forzar = true)
+        val e = esperar { it.fase == Fase.LISTO }
+        assertEquals(0L, e.instalaEn)
     }
 
     @Test

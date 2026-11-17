@@ -65,11 +65,19 @@ class UpdateBanner extends StatelessWidget {
               color: Theme.of(context).colorScheme.primaryContainer,
               child: Row(children: [
                 Expanded(
-                    child: Text(
-                        'Actualización ${e.version ?? ''} lista'
-                        '${e.requerido ? ' (requerida)' : ''}.',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis)),
+                    child: e.instalaEn == null
+                        ? Text(
+                            'Actualización ${e.version ?? ''} lista'
+                            '${e.requerido ? ' (requerida)' : ''}.',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis)
+                        // Con aviso: la cuenta regresiva, segundo a segundo.
+                        : StreamBuilder<void>(
+                            stream: Stream.periodic(const Duration(seconds: 1)),
+                            builder: (context, _) => Text(
+                                updateTextoCuenta(e),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis))),
                 FilledButton(
                     onPressed: service.instalar,
                     child: const Text('Instalar')),

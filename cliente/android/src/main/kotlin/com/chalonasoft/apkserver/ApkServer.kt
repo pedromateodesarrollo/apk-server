@@ -252,13 +252,13 @@ class Actualizacion internal constructor(private val ctx: Context) {
             sha256 = prefs.getString("listo_sha256", "").orEmpty(),
             bytes = prefs.getLong("listo_bytes", 0),
         )
-        nucleo.restaurar(v, apk)
+        nucleo.restaurar(v, apk, prefs.getLong("listo_instala_en", 0))
     }
 
     private fun guardarListo(v: VersionDisponible?, apk: File?) {
         val e = prefs.edit()
         if (v == null || apk == null) {
-            listOf("listo_build", "listo_version", "listo_requerido", "listo_url", "listo_sha256", "listo_bytes", "listo_apk")
+            listOf("listo_build", "listo_version", "listo_requerido", "listo_url", "listo_sha256", "listo_bytes", "listo_apk", "listo_instala_en")
                 .forEach { e.remove(it) }
         } else {
             e.putLong("listo_build", v.build)
@@ -409,6 +409,8 @@ class Actualizacion internal constructor(private val ctx: Context) {
         override fun ultimoChequeo() = prefs.getLong("ultimo_chequeo", 0)
         override fun guardarUltimoChequeo(ms: Long) = prefs.edit().putLong("ultimo_chequeo", ms).apply()
         override fun guardarListo(v: VersionDisponible?, apk: File?) = this@Actualizacion.guardarListo(v, apk)
+        override fun guardarInstalaEn(ms: Long) = prefs.edit().putLong("listo_instala_en", ms).apply()
+        override fun puedeAbrirPantalla() = Instalador.puedeAbrirPantalla()
         override fun despierto(trabajo: () -> Unit) = this@Actualizacion.despierto(trabajo)
         override fun sinPreguntar() = Instalador.sinPreguntar(ctx)
         override fun instalar(apk: File, version: String, conDialogo: Boolean, listo: (String) -> Unit) {

@@ -18,6 +18,20 @@ const kUpdateTextoListo =
 String updateTextoListo(String nota) =>
     nota.trim().isEmpty ? kUpdateTextoListo : '$kUpdateTextoListo ${nota.trim()}';
 
+/// «Actualización 1.4.0: se instala en 9:58. Termina lo que estás haciendo.»
+/// para un estado con aviso ([UpdateEstado.instalaEn]).
+String updateTextoCuenta(UpdateEstado e, [DateTime? ahora]) {
+  final r = e.restante(ahora) ?? Duration.zero;
+  final v = e.version ?? '';
+  if (r == Duration.zero) {
+    return e.falta == null
+        ? 'Instalando la actualización $v…'
+        : 'Actualización $v: toca «Actualizar» en la pantalla de Android.';
+  }
+  final cuenta = '${r.inMinutes}:${(r.inSeconds % 60).toString().padLeft(2, '0')}';
+  return 'Actualización $v: se instala en $cuenta. Termina lo que estás haciendo.';
+}
+
 /// Las esperas por defecto entre un corte de la descarga y el siguiente
 /// intento ([UpdateService.esperasReintento]).
 const kUpdateEsperasReintento = [
@@ -49,6 +63,21 @@ class UpdateEstado {
   /// alguien confirme) o null.
   final String? falta;
 
+  /// Actualización CON AVISO ([UpdateService.avisoMinutos] o el `aviso_minutos`
+  /// de la app en el hub): con [UpdateFase.listo], cuándo se instala sola. La
+  /// cuenta regresiva la lleva Android (sigue con la app detrás) y sale en una
+  /// notificación con reloj; la app la puede pintar con [restante]. Null = sin
+  /// aviso. Si ya pasó y sigue lista, falta que la persona toque «Actualizar».
+  final DateTime? instalaEn;
+
+  /// Cuánto falta para [instalaEn] (nunca negativo); null sin aviso.
+  Duration? restante([DateTime? ahora]) {
+    final en = instalaEn;
+    if (en == null) return null;
+    final d = en.difference(ahora ?? DateTime.now());
+    return d.isNegative ? Duration.zero : d;
+  }
+
   const UpdateEstado({
     this.fase = UpdateFase.idle,
     this.progreso = 0,
@@ -58,6 +87,7 @@ class UpdateEstado {
     this.apkPath,
     this.error,
     this.falta,
+    this.instalaEn,
   });
 
   /// Desde lo que manda la biblioteca de Android. `esperando_wifi` se enseña
@@ -80,6 +110,10 @@ class UpdateEstado {
       apkPath: m['apk'] as String?,
       error: m['error'] as String?,
       falta: m['falta'] as String?,
+      instalaEn: switch ((m['instala_en'] as num?)?.toInt() ?? 0) {
+        <= 0 => null,
+        final ms => DateTime.fromMillisecondsSinceEpoch(ms),
+      },
     );
   }
 
@@ -93,10 +127,11 @@ class UpdateEstado {
       other.requerido == requerido &&
       other.apkPath == apkPath &&
       other.error == error &&
-      other.falta == falta;
+      other.falta == falta &&
+      other.instalaEn == instalaEn;
 
   @override
-  int get hashCode => Object.hash(fase, progreso, version, build, requerido, apkPath, error, falta);
+  int get hashCode => Object.hash(fase, progreso, version, build, requerido, apkPath, error, falta, instalaEn);
 
   @override
   String toString() => 'UpdateEstado(${fase.name}${version != null ? ' $version' : ''})';
@@ -137,6 +172,7 @@ class UpdateService {
     this.puedeInstalar,
     this.avisos = true,
     this.reabrir = true,
+    this.avisoMinutos,
     this.minEntreChequeos = const Duration(minutes: 5),
     this.intervaloSondeo = const Duration(hours: 1),
     this.esperasReintento = kUpdateEsperasReintento,
@@ -176,6 +212,14 @@ class UpdateService {
   /// una pantalla propia, la abre en la de entrada y le pone el extra
   /// `com.chalonasoft.apkserver.REABIERTA_TRAS_ACTUALIZAR` al intent.
   final bool reabrir;
+
+  /// Actualización CON AVISO: al terminar de bajar, cuenta regresiva de estos
+  /// minutos ([UpdateEstado.instalaEn], notificación con reloj) y al llegar a
+  /// cero instala —sin preguntar si Android lo deja; si no, abre el instalador
+  /// para que la persona toque «Actualizar»—. Manda sobre [autoInstalar].
+  /// Null = lo que diga el hub para la app (`aviso_minutos`, lo normal); 0 =
+  /// sin aviso.
+  final int? avisoMinutos;
 
   final Duration minEntreChequeos;
   final Duration intervaloSondeo;
@@ -220,6 +264,7 @@ class UpdateService {
             if (app != null) 'app': app,
             'avisos': avisos,
             'reabrir': reabrir,
+            'avisoMinutos': avisoMinutos ?? -1,
             'intervaloMs': intervaloSondeo.inMilliseconds,
             'minEntreChequeosMs': minEntreChequeos.inMilliseconds,
             'esperasMs': [for (final d in esperasReintento) d.inMilliseconds],
@@ -335,6 +380,7 @@ class UpdateService {
     if (!autoInstalar) return;
     final e = estado.value;
     if (e.fase != UpdateFase.listo || e.apkPath == null) return;
+    if (e.instalaEn != null) return; // con aviso, instala Android al acabar la cuenta
     if (puedeInstalar != null && !puedeInstalar!()) return;
     if (e.build == _autoLanzada) return;
     final alFrente = WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;

@@ -45,6 +45,19 @@ class Ajustes {
     var puedeInstalar: () -> Boolean = { true }
 
     /**
+     * Actualización CON AVISO: al terminar de bajar, una cuenta regresiva de
+     * estos minutos (notificación con el reloj y [Estado.instalaEn] para la
+     * pantalla de la app) y al llegar a cero instala: sin preguntar si Android
+     * lo deja; si no, abre el instalador para que la persona toque «Actualizar».
+     * Manda sobre [autoInstalar]. -1 = lo que diga el hub para la app
+     * (`aviso_minutos`, 0 por defecto); 0 = sin aviso.
+     */
+    var avisoMinutos: Int = -1
+
+    /** Cuánto dura un «minuto» del aviso. Solo las pruebas lo cambian. */
+    internal var minutoMs: Long = 60_000L
+
+    /**
      * Después de instalar, volver a abrir la app (instalar la cierra y Android no
      * la reabre). Sola si la app tiene «Mostrar sobre otras apps»; si no, una
      * notificación «se actualizó — toca para abrirla». Una app sin pantalla de

@@ -29,6 +29,9 @@ class HubDePrueba : AutoCloseable {
     @Volatile
     var requerido = false
 
+    /** El `aviso_minutos` de la app (0 = sin aviso). */
+    var avisoMinutos = 0
+
     /** La consulta contesta 500 (el hub no está). */
     @Volatile
     var consultaCaida = false
@@ -86,7 +89,7 @@ class HubDePrueba : AutoCloseable {
             d.put("actualizar", false).put("requerido", false)
         } else {
             val v = version()
-            d.put("actualizar", true).put("requerido", requerido).put(
+            d.put("actualizar", true).put("requerido", requerido).put("aviso_minutos", avisoMinutos).put(
                 "version",
                 JSONObject().put("build", v.build).put("version", v.version).put("sha256", v.sha256)
                     .put("bytes", v.bytes).put("ruta", "/archivos/${v.sha256}.apk"),

@@ -40,6 +40,10 @@ Future<bool> hayRequerida(Bd bd, int app, int build) async =>
     ) !=
     null;
 
+/// Minutos de aviso con cuenta regresiva antes de instalar (0 = sin aviso).
+Future<int> avisoMinutos(Bd bd, int app) async =>
+    (await bd.fila('select aviso_minutos from apk.app where id = @a', {'a': app}))?['aviso_minutos'] as int? ?? 0;
+
 /// Ruta de descarga de un APK (o de un MSI). Lleva el sha256: es inmutable y se cachea.
 String rutaArchivo(String sha, [String formato = 'apk']) => '/archivos/$sha.$formato';
 

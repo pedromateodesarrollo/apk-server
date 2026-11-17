@@ -57,6 +57,13 @@ internal object Instalador {
         return i.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
     }
 
+    /**
+     * ¿Se puede abrir la pantalla del sistema ahora? Con la app al frente, o
+     * antes de Android 10, que todavía deja abrir pantallas desde segundo plano
+     * (las Zebra TC56 con Android 8.1).
+     */
+    fun puedeAbrirPantalla(): Boolean = Build.VERSION.SDK_INT < 29 || alFrente()
+
     fun instalar(ctx: Context, apk: File, conDialogo: Boolean, listo: (String) -> Unit) {
         val app = ctx.applicationContext
         if (!apk.isFile) {
@@ -68,14 +75,14 @@ internal object Instalador {
             // Sin «Permitir de esta fuente» la sesión acabaría pidiendo
             // confirmar: ni se copia el APK. El instalador de siempre lleva a
             // la persona a dar el permiso, y la próxima ya va sola.
-            if (conDialogo && alFrente()) {
+            if (conDialogo && puedeAbrirPantalla()) {
                 listo(if (abrirInstalador(app, apk)) "dialogo" else "error")
             } else {
                 listo("permiso")
             }
             return
         }
-        if (Build.VERSION.SDK_INT < 31 && !(conDialogo && alFrente())) {
+        if (Build.VERSION.SDK_INT < 31 && !(conDialogo && puedeAbrirPantalla())) {
             // Antes de Android 12 siempre pregunta: no tiene caso armar la sesión.
             listo("no_soportado")
             return
@@ -143,7 +150,7 @@ internal object Instalador {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
                 @Suppress("DEPRECATION")
                 val confirmar = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
-                if (e != null && e.conDialogo && confirmar != null && alFrente()) {
+                if (e != null && e.conDialogo && confirmar != null && puedeAbrirPantalla()) {
                     // La pantalla del sistema para ESTA sesión: confirma y sigue.
                     try {
                         ctx.startActivity(confirmar.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

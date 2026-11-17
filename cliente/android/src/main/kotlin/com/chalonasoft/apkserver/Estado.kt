@@ -46,6 +46,12 @@ data class Estado(
      * confirme) o null (se puede).
      */
     val falta: String? = null,
+    /**
+     * Con [Fase.LISTO] y aviso ([Ajustes.avisoMinutos] o el `aviso_minutos` del
+     * hub): cuándo se instala sola (epoch ms). 0 = sin cuenta regresiva. Si ya
+     * pasó y sigue lista, Android pidió a la persona: falta que toque.
+     */
+    val instalaEn: Long = 0,
 ) {
     fun aMapa(): Map<String, Any?> = mapOf(
         "fase" to fase.clave,
@@ -56,5 +62,6 @@ data class Estado(
         "apk" to apk,
         "error" to error,
         "falta" to falta,
+        "instala_en" to instalaEn,
     )
 }

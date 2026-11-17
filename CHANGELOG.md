@@ -2,6 +2,25 @@
 
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## 0.5.0 — 2026-11-17
+
+Actualización con aviso: la versión se baja sola y, antes de instalarla, la
+persona ve una cuenta regresiva (hub, cliente de Android y de Flutter).
+
+* **Hub:** columna `apk.app.aviso_minutos` (migración 0004, 0–240, 0 por
+  defecto), que viaja en la consulta (`aviso_minutos`) y se cambia con
+  `PATCH /v1/apps/:app`.
+* **Android:** con aviso, al terminar de bajar arranca la cuenta (sobrevive a un
+  reinicio del proceso; si su hora pasó con la app cerrada, un minuto más de
+  aviso), una notificación fija con el reloj hacia atrás («Actualización X en
+  10 min», tocarla instala ya) y `Estado.instalaEn`. A cero instala: sin
+  preguntar si Android lo deja; si no, el instalador del sistema, que antes de
+  Android 10 se abre aunque la app esté detrás; en Android 10+ con la app detrás,
+  al volver al frente. Manda sobre `autoInstalar`. `Ajustes.avisoMinutos` (-1 =
+  el hub) lo pisa.
+* **Flutter:** `UpdateEstado.instalaEn` y `restante()`, `UpdateService(avisoMinutos:)`,
+  `updateTextoCuenta()` y `UpdateBanner` con la cuenta segundo a segundo.
+
 ## 0.4.0 — 2026-10-19
 
 La app vuelve a abrirse sola después de actualizarse (cliente de Android y de

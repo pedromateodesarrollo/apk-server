@@ -117,6 +117,7 @@ README principal.
 | `reabrir` | `true` | Reabrir la app al terminar de instalar. |
 | `avisarReabrirSola` | `true` | Una vez, avisar que activando «Mostrar sobre otras apps» se abre sola. |
 | `puedeInstalar` | `{ true }` | Con `autoInstalar`, si en ese momento se puede. |
+| `avisoMinutos` | -1 (el hub) | **Actualización con aviso**: al tener lista la versión, cuenta regresiva de N minutos (notificación con reloj, `Estado.instalaEn`) y a cero instala; sin permiso de instalar, abre el instalador (antes de Android 10, aunque la app esté detrás). -1 = el `aviso_minutos` de la app en el hub (0 por defecto); 0 = sin aviso. Manda sobre `autoInstalar`. |
 | `notificarLista` | `true` | La notificación de «lista». |
 | `notificarDescarga` | `false` | Una notificación callada con el avance. |
 | `icono` | el del sistema | Icono (monocromo) de las notificaciones. |

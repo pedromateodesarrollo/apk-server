@@ -20,6 +20,11 @@ data class VersionDisponible(
     val notas: String = "",
     val sha256: String = "",
     val bytes: Long = 0,
+    /**
+     * Minutos de aviso con cuenta regresiva antes de instalar lo bajado; lo
+     * dice el hub por app (`aviso_minutos`). 0 = sin aviso (la app decide).
+     */
+    val avisoMinutos: Int = 0,
 ) {
     companion object {
         /** Desde la respuesta de `/v1/apps/:app/consulta` (o `/ultima`). Null si no hay nada que bajar. */
@@ -37,6 +42,7 @@ data class VersionDisponible(
                 notas = v.optString("notas"),
                 sha256 = v.optString("sha256"),
                 bytes = v.optLong("bytes", 0),
+                avisoMinutos = r.optInt("aviso_minutos", 0).coerceIn(0, 240),
             )
         }
     }

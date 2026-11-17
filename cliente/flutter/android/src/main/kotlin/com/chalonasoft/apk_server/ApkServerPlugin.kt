@@ -112,6 +112,9 @@ class ApkServerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         call.argument<Number>("intervaloMs")?.let { aj.intervaloMs = it.toLong() }
         call.argument<Number>("minEntreChequeosMs")?.let { aj.minEntreChequeosMs = it.toLong() }
         call.argument<List<Number>>("esperasMs")?.let { l -> aj.esperasReintentoMs = l.map { it.toLong() } }
+        // La cuenta regresiva (actualización con aviso) sí la lleva Android:
+        // tiene que seguir con la app detrás. -1 = lo que diga el hub.
+        aj.avisoMinutos = call.argument<Number>("avisoMinutos")?.toInt() ?: -1
         // Instalar lo decide Dart (`autoInstalar`, `puedeInstalar`): sabe si la
         // app está al frente y a mitad de qué.
         aj.autoInstalar = false

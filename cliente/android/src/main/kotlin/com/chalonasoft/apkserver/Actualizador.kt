@@ -34,6 +34,12 @@ internal interface Plataforma {
     /** El APK bajado y no instalado, para recordarlo si el proceso se reinicia. */
     fun guardarListo(v: VersionDisponible?, apk: File?)
 
+    /** Cuándo se instala lo bajado (cuenta regresiva del aviso); 0 = sin aviso. Sobrevive al proceso. */
+    fun guardarInstalaEn(ms: Long) = Unit
+
+    /** ¿Se puede abrir una pantalla del sistema (el instalador) ahora? Antes de Android 10, siempre. */
+    fun puedeAbrirPantalla(): Boolean = false
+
     /** Corre [trabajo] sin que el teléfono se duerma (wakelock), si se puede. */
     fun despierto(trabajo: () -> Unit) = trabajo()
 
@@ -116,20 +122,35 @@ internal class Actualizador(
     private var instalando = false
     private var autoLanzada: Long = -1
 
+    /** Con aviso: cuándo se instala lo que está [listo] (epoch ms); 0 = sin cuenta regresiva. */
+    private var instalaEn: Long = 0
+    private var avisoTarea: ScheduledFuture<*>? = null
+
+    /** Venció el aviso con la app detrás y Android pedía a la persona: al volver al frente, el instalador. */
+    private var instalarAlFrente = false
+
     // ------------------------------------------------------------ entrada
 
-    /** Recupera un APK que ya estaba bajado de otra vez que corrió la app. */
-    fun restaurar(v: VersionDisponible, apk: File) = hilo.execute {
+    /**
+     * Recupera un APK que ya estaba bajado de otra vez que corrió la app. Con
+     * [instalaEnGuardado] (había cuenta regresiva) el aviso sigue; si su hora
+     * pasó con la app cerrada, se da un minuto más de aviso: nunca sin avisar.
+     */
+    fun restaurar(v: VersionDisponible, apk: File, instalaEnGuardado: Long = 0) = hilo.execute {
         if (listo != null || bajando != null) return@execute
         if (v.build <= plataforma.buildActual() || !apk.isFile) {
             // Ya se instaló (o se borró): fuera.
             apk.delete()
             plataforma.guardarListo(null, null)
+            plataforma.guardarInstalaEn(0)
             return@execute
         }
         listo = v to apk
         ultima = v
-        cambiar(Estado(Fase.LISTO, 1.0, v.version, v.build, v.requerido, apk.path, falta = falta()))
+        if (instalaEnGuardado > 0) {
+            avisar(maxOf(instalaEnGuardado, plataforma.ahora() + ULTIMO_AVISO_MS))
+        }
+        cambiar(listoDe(v, apk))
     }
 
     /** Sondeo cada [Ajustes.intervaloMs], socket si [Ajustes.avisos], y pregunta ya. Idempotente. */
@@ -180,6 +201,11 @@ internal class Actualizador(
         avisos?.reconectarAhora()
         reintentarYa()
         verificarAhora(forzar = false, silencioso = false)
+        if (instalarAlFrente && estado.fase == Fase.LISTO) {
+            // El aviso ya venció con la app detrás: una vez, el instalador.
+            instalarAlFrente = false
+            instalarAhora(conDialogo = true, alTerminar = null)
+        }
     }
 
     /** La red cambió. [otra]: es otra red (el socket viejo quedó colgado). */
@@ -266,6 +292,7 @@ internal class Actualizador(
             pendiente = null
             fallos = 0
             cancelarReintento()
+            quitarAviso()
             if (listo != null) {
                 listo?.second?.delete()
                 listo = null
@@ -294,9 +321,7 @@ internal class Actualizador(
         if (estado.fase == Fase.INSTALANDO) return
         val l = listo
         if (l != null && l.first.build == v.build && l.second.isFile) {
-            if (estado.fase != Fase.LISTO) {
-                cambiar(Estado(Fase.LISTO, 1.0, v.version, v.build, v.requerido, l.second.path, falta = falta()))
-            }
+            if (estado.fase != Fase.LISTO) cambiar(listoDe(l.first, l.second))
             return
         }
         pendiente = v
@@ -346,7 +371,13 @@ internal class Actualizador(
                 pendiente = null
                 fallos = 0
             }
-            cambiar(Estado(Fase.LISTO, 1.0, v.version, v.build, v.requerido, apk.path, falta = falta()))
+            val minutos = if (ajustes.avisoMinutos >= 0) ajustes.avisoMinutos else v.avisoMinutos
+            if (minutos > 0) {
+                avisar(plataforma.ahora() + minutos * ajustes.minutoMs)
+            } else {
+                quitarAviso()
+            }
+            cambiar(listoDe(v, apk))
             instalarSiListoAhora()
         }
         r.onFailure { e ->
@@ -402,8 +433,53 @@ internal class Actualizador(
 
     private fun falta(): String? = if (plataforma.sinPreguntar()) null else "permiso"
 
+    private fun listoDe(v: VersionDisponible, apk: File, porque: String? = falta()) =
+        Estado(Fase.LISTO, 1.0, v.version, v.build, v.requerido, apk.path, falta = porque, instalaEn = instalaEn)
+
+    // ------------------------------------------------------------- aviso
+
+    /** Arranca (o sigue) la cuenta regresiva hasta [en]; al llegar, [alVencerAviso]. */
+    private fun avisar(en: Long) {
+        avisoTarea?.cancel(false)
+        instalaEn = en
+        instalarAlFrente = false
+        plataforma.guardarInstalaEn(en)
+        avisoTarea = hilo.schedule({
+            avisoTarea = null
+            alVencerAviso()
+        }, maxOf(0L, en - plataforma.ahora()), TimeUnit.MILLISECONDS)
+    }
+
+    private fun quitarAviso() {
+        avisoTarea?.cancel(false)
+        avisoTarea = null
+        instalarAlFrente = false
+        if (instalaEn != 0L) {
+            instalaEn = 0
+            plataforma.guardarInstalaEn(0)
+        }
+    }
+
+    /**
+     * Llegó la hora avisada: se instala. Sin preguntar si Android lo deja; si
+     * no, el instalador del sistema (la persona toca «Actualizar») si se puede
+     * abrir una pantalla; con la app detrás en Android 10+, al volver al frente.
+     */
+    private fun alVencerAviso() {
+        val l = listo ?: return
+        if (estado.fase != Fase.LISTO || l.first.build != estado.build) return
+        val conDialogo = plataforma.sinPreguntar() || plataforma.puedeAbrirPantalla()
+        instalarAhora(conDialogo = conDialogo) { r ->
+            if (r in LANZADA) return@instalarAhora
+            instalarAlFrente = true
+            // La notificación pasa de la cuenta regresiva a «toca para instalar».
+            plataforma.alCambiar(estado)
+        }
+    }
+
     private fun instalarSiListoAhora() {
         if (!ajustes.autoInstalar) return
+        if (instalaEn > 0) return // con aviso manda la cuenta regresiva
         val l = listo ?: return
         if (estado.fase != Fase.LISTO) return
         if (l.first.build == autoLanzada) return
@@ -442,7 +518,7 @@ internal class Actualizador(
                         "confirmar", "permiso" -> r
                         else -> falta()
                     }
-                    cambiar(Estado(Fase.LISTO, 1.0, v.version, v.build, v.requerido, apk.path, falta = porque))
+                    cambiar(listoDe(v, apk, porque))
                 }
                 alTerminar?.invoke(r)
             }
@@ -458,5 +534,8 @@ internal class Actualizador(
     companion object {
         /** Resultados de [instalar] con los que la instalación sí arrancó. */
         val LANZADA = setOf("instalada", "dialogo", "sin_respuesta", "en_curso")
+
+        /** Si la hora del aviso pasó con la app cerrada, este último aviso antes de instalar. */
+        const val ULTIMO_AVISO_MS = 60_000L
     }
 }

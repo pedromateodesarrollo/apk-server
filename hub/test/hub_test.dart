@@ -222,6 +222,7 @@ void main() {
     expect(d['actualizar'], isTrue);
     expect(d['requerido'], isTrue);
     expect(d['version']['build'], 11);
+    expect(d['aviso_minutos'], 0, reason: 'sin aviso por defecto');
     (st, d) = await pide('GET', '/v1/apps/inventario/ultima?build=10');
     expect(d['actualizar'], isTrue);
     expect(d['requerido'], isFalse);
