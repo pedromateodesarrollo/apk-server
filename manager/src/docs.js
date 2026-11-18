@@ -25,6 +25,7 @@ export const autenticacion = [
     titulo: 'Permisos de una llave',
     texto:
       '`publicar` sube versiones y cambia sus notas, si son obligatorias o si están retiradas · ' +
+      '`publicar_opcional` igual, pero solo versiones no obligatorias (con `requerido` da 403 `solo_opcional`) · ' +
       '`leer` lista apps, versiones y equipos · `admin` abre todo el API, incluidos usuarios y llaves.',
   },
   {

@@ -238,6 +238,25 @@ void main() {
     expect(sha256.convert(bajado).toString(), sha256.convert(apk(11)).toString());
   });
 
+  test('una llave publicar_opcional publica, pero no marca obligatoria', () async {
+    var (st, d) = await pide('POST', '/v1/llaves',
+        json: {'nombre': 'de fuera', 'permisos': ['publicar_opcional'], 'apps': ['inventario']}, token: llave);
+    expect(st, 201, reason: '$d');
+    final opcional = d['llave'] as String;
+
+    (st, d) = await pide('POST', '/v1/apps/inventario/versiones?requerido=1', cuerpo: apk(11), token: opcional);
+    expect(st, 403);
+    expect(d['error'], 'solo_opcional', reason: '$d');
+    // La misma build sin requerido: ya estaba, no es error.
+    (st, d) = await pide('POST', '/v1/apps/inventario/versiones', cuerpo: apk(11), token: opcional);
+    expect(st, 200, reason: '$d');
+    (st, d) = await pide('PATCH', '/v1/apps/inventario/versiones/11', json: {'requerido': true}, token: opcional);
+    expect(st, 403);
+    (st, d) = await pide('PATCH', '/v1/apps/inventario/versiones/11', json: {'notas': 'arreglos'}, token: opcional);
+    expect(st, 200, reason: '$d');
+    expect(d['requerido'], isFalse);
+  });
+
   test('rechaza otro paquete, otra firma y una build repetida con otro APK', () async {
     var (st, d) = await pide('POST', '/v1/apps/inventario/versiones',
         cuerpo: apk(12, paquete: 'com.ejemplo.otra'), token: llave);

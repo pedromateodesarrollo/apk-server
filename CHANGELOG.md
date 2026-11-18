@@ -2,6 +2,13 @@
 
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## Sin versión — 2026-11-18
+
+* **Hub:** permiso de llave `publicar_opcional`: publica como `publicar`, pero
+  solo versiones no obligatorias (subir con `requerido` o marcar obligatoria
+  una ya subida da 403 `solo_opcional`). Para la llave de un programador de
+  fuera.
+
 ## 0.5.1 — 2026-11-17
 
 * **Android:** el aviso único de «Mostrar sobre otras apps» no sale si la app

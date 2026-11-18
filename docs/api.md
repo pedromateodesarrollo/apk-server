@@ -16,7 +16,7 @@ curl -H "authorization: Bearer cak_ab12cd34_..." https://TU-HUB/v1/apps
 
 ### Permisos de una llave
 
-`publicar` sube versiones y cambia sus notas, si son obligatorias o si están retiradas · `leer` lista apps, versiones y equipos · `admin` abre todo el API, incluidos usuarios y llaves.
+`publicar` sube versiones y cambia sus notas, si son obligatorias o si están retiradas · `publicar_opcional` igual, pero solo versiones no obligatorias (con `requerido` da 403 `solo_opcional`) · `leer` lista apps, versiones y equipos · `admin` abre todo el API, incluidos usuarios y llaves.
 
 ### Sesión de persona
 
@@ -52,7 +52,7 @@ dependencies:
     git:
       url: https://github.com/pedromateodesarrollo/apk-server
       path: cliente/flutter
-      ref: v0.5.1
+      ref: v0.2.1
 
 // main.dart
 final update = UpdateService(
@@ -112,7 +112,6 @@ Lo que pregunta una app instalada: «tengo la build N, ¿hay algo?». De paso de
   "build_actual": 80,
   "actualizar": true,
   "requerido": true,
-  "aviso_minutos": 0,
   "version": {
     "build": 84,
     "version": "1.55.0",
@@ -265,9 +264,7 @@ Crea una app. El `slug` es global en el hub (va en las URL públicas) y no se ca
 
 *Acceso: admin*
 
-Cambia `nombre`, `descripcion` o `aviso_minutos` (0–240).
-
-`aviso_minutos` es la **actualización con aviso** (0.5.0): con más de 0, el equipo baja la versión en segundo plano y, al tenerla lista, avisa con una cuenta regresiva de esos minutos (una notificación con el reloj y, en la app, `UpdateEstado.instalaEn`); al llegar a cero instala: sin preguntar en Android 12+ con «Permitir de esta fuente»; si no, abre el instalador para que la persona toque «Actualizar». 0 (por defecto) = como siempre: la app decide cuándo. La app lo puede pisar con `Ajustes.avisoMinutos` / `UpdateService(avisoMinutos:)`.
+Cambia `nombre` o `descripcion`.
 
 ### `PUT /v1/apps/:app/icono`
 

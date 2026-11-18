@@ -27,6 +27,11 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
   Respuesta sinPermiso(String permiso) =>
       Respuesta.falla(403, 'sin_permiso', 'La llave no tiene el permiso «$permiso»');
 
+  bool siNo(Object? x) => const ['1', 'true', 'si', 'sí'].contains('${x ?? ''}'.toLowerCase());
+
+  Respuesta soloOpcional() => Respuesta.falla(403, 'solo_opcional',
+      'Esta llave solo publica versiones no obligatorias; lo de obligatoria lo marca un administrador en el panel');
+
   // ------------------------------------------------------------------ apps
 
   s.ruta('GET', '/v1/apps', (p) async {
@@ -275,7 +280,8 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
   // Lo que se dice por la consulta (`version`, `build`) es opcional y solo se
   // usa para comprobar: lo que manda es lo que trae el APK.
   s.ruta('POST', '/v1/apps/:app/versiones', (p) async {
-    if (!p.s.puede('publicar')) return sinPermiso('publicar');
+    if (!p.s.publica) return sinPermiso('publicar');
+    if (p.s.soloOpcional && siNo(p.consulta['requerido'])) return soloOpcional();
     final app = await propia(p);
     if (app == null) return noEsta();
     final slug = app['slug'] as String;
@@ -402,7 +408,8 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
 
   // Cambiar notas, marcarla obligatoria o retirarla (y devolverla).
   s.ruta('PATCH', '/v1/apps/:app/versiones/:build', (p) async {
-    if (!p.s.puede('publicar')) return sinPermiso('publicar');
+    if (!p.s.publica) return sinPermiso('publicar');
+    if (p.s.soloOpcional && p.cuerpo['requerido'] == true) return soloOpcional();
     final app = await propia(p);
     if (app == null) return noEsta();
     final build = p.enteroParam('build');

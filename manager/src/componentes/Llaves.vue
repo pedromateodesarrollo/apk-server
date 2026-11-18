@@ -13,6 +13,7 @@ const confirmando = ref(null)
 
 const todos = [
   ['publicar', 'Publicar versiones (y cambiar sus notas, marcarlas o retirarlas)'],
+  ['publicar_opcional', 'Publicar solo versiones no obligatorias (para un programador de fuera)'],
   ['leer', 'Leer apps, versiones y equipos'],
   ['admin', 'Administrar todo (usuarios, llaves, apps)'],
 ]

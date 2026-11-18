@@ -42,6 +42,13 @@ class Sesion {
   bool puede(String permiso) =>
       esUsuario || permisos.contains('admin') || permisos.contains(permiso);
 
+  /// Puede subir versiones: `publicar` o `publicar_opcional`.
+  bool get publica => puede('publicar') || permisos.contains('publicar_opcional');
+
+  /// Solo versiones no obligatorias (llave con `publicar_opcional` y sin
+  /// `publicar` ni `admin`).
+  bool get soloOpcional => !puede('publicar') && permisos.contains('publicar_opcional');
+
   /// Si la credencial alcanza la app [slug] (la org se mira aparte).
   bool alcanza(String slug) => esUsuario || apps.isEmpty || apps.contains(slug);
 

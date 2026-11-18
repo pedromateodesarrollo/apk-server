@@ -7,6 +7,10 @@ import 'servidor.dart';
 const permisosValidos = {
   // Subir versiones nuevas (y nada más).
   'publicar',
+  // Como `publicar`, pero solo versiones NO obligatorias: no puede subir una
+  // con `requerido` ni marcar obligatoria una ya subida. Para la llave que se
+  // le da a un programador de fuera: publica, pero no tapa la app a nadie.
+  'publicar_opcional',
   // Leer el panel por API: apps, versiones e instalaciones.
   'leer',
   // Todo, incluida la gestión de usuarios y de otras llaves. Es para
