@@ -359,6 +359,19 @@ class UpdateService {
   /// para esta app (lo que hace que [reabreSola] sea `true`).
   Future<void> pedirReabrirSola() => _llamar('pedirReabrirSola');
 
+  /// La versión instalada de la app («1.3.7», build 81), para enseñarla a la
+  /// vista ([UpdateVersion]). Null fuera de Android o si falla.
+  Future<({String version, int build})?> versionInstalada() async {
+    if (!await _prepara()) return null;
+    try {
+      final m = await _canal.invokeMapMethod<String, Object?>('version');
+      if (m == null) return null;
+      return (version: '${m['version'] ?? ''}', build: (m['build'] as num?)?.toInt() ?? 0);
+    } on PlatformException {
+      return null;
+    }
+  }
+
   /// ¿Instalar ahora iría sin preguntar? Android 12+ y la persona con
   /// «Permitir de esta fuente» activado para la app.
   Future<bool> sinPreguntar() async {

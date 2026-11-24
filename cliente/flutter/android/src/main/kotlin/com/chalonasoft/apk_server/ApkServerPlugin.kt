@@ -99,6 +99,12 @@ class ApkServerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             }
             "estado" -> result.success(a.estado.aMapa())
             "equipo" -> result.success(a.equipo())
+            "version" -> {
+                val i = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+                @Suppress("DEPRECATION")
+                val build = if (android.os.Build.VERSION.SDK_INT >= 28) i.longVersionCode else i.versionCode.toLong()
+                result.success(mapOf("version" to (i.versionName ?: ""), "build" to build))
+            }
             else -> result.notImplemented()
         }
     }

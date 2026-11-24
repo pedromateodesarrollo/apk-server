@@ -14,3 +14,4 @@ export 'src/update_accion.dart';
 export 'src/update_banner.dart';
 export 'src/update_service.dart';
 export 'src/update_tarjeta.dart';
+export 'src/update_version.dart';

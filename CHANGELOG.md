@@ -2,6 +2,17 @@
 
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## 0.5.2 — 2026-11-24
+
+* **Android:** una versión ya bajada cuando era opcional se vuelve requerida (o
+  cambia sus notas o su aviso) en cuanto el hub lo dice, sin volver a bajarla.
+  Antes el equipo se quedaba con lo que dijo el hub al bajarla y nunca
+  bloqueaba, ni cerrando la app (jf-paradas, 24-nov: 6 equipos con la 1.3.4
+  bajada y sin pantalla de actualizar).
+* **Flutter:** `UpdateVersion` y `UpdateService.versionInstalada()`: la
+  versión instalada a la vista («v1.3.7»); `UpdateVersion.esquina(service)`
+  la pone abajo a la izquierda de todas las pantallas sin tapar toques.
+
 ## Sin versión — 2026-11-18
 
 * **Hub:** permiso de llave `publicar_opcional`: publica como `publicar`, pero

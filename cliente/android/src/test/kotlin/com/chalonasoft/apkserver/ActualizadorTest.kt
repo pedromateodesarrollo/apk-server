@@ -215,6 +215,18 @@ class ActualizadorTest {
     }
 
     @Test
+    fun `ya bajada como opcional, si el hub la vuelve requerida lo dice sin volver a bajarla`() {
+        a.verificar(forzar = true)
+        esperar { it.fase == Fase.LISTO && !it.requerido }
+        val pedidas = hub.rangos.size
+        hub.requerido = true
+        a.verificar(forzar = true)
+        esperar { it.fase == Fase.LISTO && it.requerido }
+        assertEquals(true, p.listoGuardado?.first?.requerido)
+        assertEquals("no la bajó otra vez", pedidas, hub.rangos.size)
+    }
+
+    @Test
     fun `una versión retirada con el APK ya bajado deja de ofrecerse`() {
         a.verificar(forzar = true)
         val e = esperar { it.fase == Fase.LISTO }

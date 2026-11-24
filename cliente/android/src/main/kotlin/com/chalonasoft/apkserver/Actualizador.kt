@@ -321,7 +321,15 @@ internal class Actualizador(
         if (estado.fase == Fase.INSTALANDO) return
         val l = listo
         if (l != null && l.first.build == v.build && l.second.isFile) {
-            if (estado.fase != Fase.LISTO) cambiar(listoDe(l.first, l.second))
+            // La misma build, ya bajada, pero el hub la cambió (opcional → requerida, notas): se queda el archivo y
+            // manda lo que dice el hub ahora. Sin esto, una bajada cuando era opcional nunca bloqueaba (jf-paradas, 24-nov).
+            if (l.first != v) {
+                listo = v to l.second
+                plataforma.guardarListo(v, l.second)
+                cambiar(listoDe(v, l.second))
+            } else if (estado.fase != Fase.LISTO) {
+                cambiar(listoDe(l.first, l.second))
+            }
             return
         }
         pendiente = v
