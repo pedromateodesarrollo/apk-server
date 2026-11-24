@@ -338,6 +338,11 @@ class UpdateService {
   /// había una descarga cortada, sigue ya.
   Future<void> alVolverAlFrente() => _llamar('alVolverAlFrente');
 
+  /// La persona está a mitad de algo que se perdería si la app se cierra
+  /// (un formulario a medias). Con true, la cuenta regresiva que vence NO
+  /// instala: espera a que la app diga false y entonces instala.
+  Future<void> ocupado(bool v) => _llamar('ocupado', {'ocupado': v});
+
   /// Verifica y, si hay versión nueva, la baja en segundo plano. Vuelve
   /// cuando el hub contestó (la descarga sigue sola). Con freno; [forzar] lo
   /// salta, para el botón manual.

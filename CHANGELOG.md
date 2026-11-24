@@ -2,6 +2,15 @@
 
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## 0.5.3 — 2026-11-24
+
+* **Android/Flutter:** `UpdateService.ocupado(bool)` (Android: `ocupado(v)`):
+  la app dice que la persona está a mitad de algo. Si la cuenta regresiva de
+  una actualización con aviso vence mientras tanto, no instala (instalar cierra
+  la app y se perdería lo escrito): espera a que la app diga `false` y entonces
+  instala. Sin llamarlo no cambia nada (materia-prima, 24-nov: aviso de 10 a
+  1 minuto sin borrar lo que se está haciendo).
+
 ## 0.5.2 — 2026-11-24
 
 * **Android:** una versión ya bajada cuando era opcional se vuelve requerida (o

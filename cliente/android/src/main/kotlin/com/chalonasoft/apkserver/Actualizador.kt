@@ -129,6 +129,10 @@ internal class Actualizador(
     /** Venció el aviso con la app detrás y Android pedía a la persona: al volver al frente, el instalador. */
     private var instalarAlFrente = false
 
+    /** La app dijo que está a mitad de algo ([ocupado]); [esperandoLibre]: el aviso venció entre tanto. */
+    private var estaOcupada = false
+    private var esperandoLibre = false
+
     // ------------------------------------------------------------ entrada
 
     /**
@@ -205,6 +209,15 @@ internal class Actualizador(
             // El aviso ya venció con la app detrás: una vez, el instalador.
             instalarAlFrente = false
             instalarAhora(conDialogo = true, alTerminar = null)
+        }
+    }
+
+    /** La app está (o dejó de estar) a mitad de algo: el aviso vencido espera a que termine. */
+    fun ocupado(v: Boolean) = hilo.execute {
+        estaOcupada = v
+        if (!v && esperandoLibre) {
+            esperandoLibre = false
+            alVencerAviso()
         }
     }
 
@@ -476,6 +489,11 @@ internal class Actualizador(
     private fun alVencerAviso() {
         val l = listo ?: return
         if (estado.fase != Fase.LISTO || l.first.build != estado.build) return
+        if (estaOcupada) {
+            // Cerrar la app ahora borraría lo que la persona está haciendo.
+            esperandoLibre = true
+            return
+        }
         val conDialogo = plataforma.sinPreguntar() || plataforma.puedeAbrirPantalla()
         instalarAhora(conDialogo = conDialogo) { r ->
             if (r in LANZADA) return@instalarAhora

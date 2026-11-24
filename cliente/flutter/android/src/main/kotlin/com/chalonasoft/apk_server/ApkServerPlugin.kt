@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
  * Dart → Android:
  * - `configurar {hub?, app?, avisos, intervaloMs, minEntreChequeosMs, esperasMs}`
  *   → `{hub, app, urlInstalar, instalacion, estado}`
- * - `iniciar`, `detener`, `alVolverAlFrente`
+ * - `iniciar`, `detener`, `alVolverAlFrente`, `ocupado {ocupado}`
  * - `verificar {forzar, manual}` → cuando el hub contestó
  * - `instalar {conDialogo}` → `{resultado}`
  * - `reabreSola` → bool; `pedirReabrirSola`; `sinPreguntar` → bool; `estado` → mapa; `equipo` → `{huella, modelo, fabricante, android}`
@@ -82,6 +82,10 @@ class ApkServerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             }
             "alVolverAlFrente" -> {
                 a.alVolverAlFrente()
+                result.success(null)
+            }
+            "ocupado" -> {
+                a.ocupado(call.argument<Boolean>("ocupado") ?: false)
                 result.success(null)
             }
             "verificar" -> a.verificar(

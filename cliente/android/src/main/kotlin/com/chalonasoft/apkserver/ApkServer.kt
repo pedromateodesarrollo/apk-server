@@ -167,6 +167,13 @@ class Actualizacion internal constructor(private val ctx: Context) {
     fun alVolverAlFrente() = nucleo.alVolverAlFrente()
 
     /**
+     * La persona está a mitad de algo que se perdería al cerrarse la app. Con
+     * [v] true, la cuenta regresiva que vence no instala: espera a que la app
+     * diga false (volvió al menú) y entonces instala. Sin aviso no cambia nada.
+     */
+    fun ocupado(v: Boolean) = nucleo.ocupado(v)
+
+    /**
      * Instala el APK bajado: sin preguntar si Android lo deja (la app se
      * cierra); si no, con [conDialogo] y la app al frente, con la pantalla
      * del sistema. [listo] recibe `instalada | dialogo | confirmar | permiso |

@@ -110,7 +110,7 @@ dependencies:
     git:
       url: https://github.com/pedromateodesarrollo/apk-server
       path: cliente/flutter
-      ref: v0.5.1
+      ref: v0.5.3
 ```
 
 ```dart
