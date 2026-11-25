@@ -29,6 +29,14 @@ onMounted(async () => {
 
 const ultima = computed(() => datos.value?.ultima)
 const windows = computed(() => datos.value?.plataforma === 'windows')
+
+// La descarga va por el MISMO dominio en que se abrió la página: el hub
+// contesta en varios (apk.chalonasoft.com, apk.chalona.app,
+// apk.vicortiz.com) y `instalar` trae el de APK_URL_PUBLICA. Si un dominio
+// queda bloqueado en el navegador, los otros siguen bajando.
+const descarga = computed(() => {
+  try { return new URL(datos.value.instalar).pathname } catch { return datos.value?.instalar }
+})
 </script>
 
 <template>
@@ -46,7 +54,7 @@ const windows = computed(() => datos.value?.plataforma === 'windows')
         <p class="version">
           Versión {{ ultima.version }} · {{ bytes(ultima.bytes) }} · {{ fecha(ultima.publicado) }}
         </p>
-        <a class="boton" :href="datos.instalar">{{ windows ? 'Descargar el instalador' : 'Descargar e instalar' }}</a>
+        <a class="boton" :href="descarga">{{ windows ? 'Descargar el instalador' : 'Descargar e instalar' }}</a>
 
         <div v-if="!esAndroid && !windows">
           <div class="qr" v-html="qr"></div>
