@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import '../almacen.dart';
@@ -310,7 +311,20 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
     final q = p.consulta;
     final buildDicha = int.tryParse(q['build'] ?? '');
     final versionDicha = (q['version'] ?? '').trim();
-    if (buildDicha != null && buildDicha != info.build) {
+    // Aviso propio de esta versión (si no, el de la app) y versión puente a otro hub.
+    final avisoDicho = (q['aviso_minutos'] ?? '').trim();
+    final aviso = avisoDicho.isEmpty ? null : int.tryParse(avisoDicho);
+    final mudanza = (q['mudanza'] ?? '').trim().replaceAll(RegExp(r'/+$'), '');
+    if (avisoDicho.isNotEmpty && (aviso == null || aviso < 0 || aviso > 240)) {
+      rechazo = Respuesta.falla(400, 'aviso_minutos', 'aviso_minutos va de 0 (sin aviso) a 240');
+    } else if (mudanza.isNotEmpty && !p.s.esAdmin) {
+      rechazo = Respuesta.falla(403, 'sin_permiso', 'Una versión puente (mudanza) solo la publica un administrador');
+    } else if (mudanza.isNotEmpty && (!_httpsOLocal(mudanza) || _mismoHub(mudanza, p.urlPublica))) {
+      rechazo = Respuesta.falla(400, 'mudanza', 'mudanza es la dirección https del hub nuevo, distinto de este');
+    } else if (mudanza.isNotEmpty && (info.hub == null || !_mismoHub(info.hub!, mudanza))) {
+      rechazo = Respuesta.falla(409, 'mudanza_hub',
+          'Para mudar a $mudanza, el APK tiene que preguntarle a ese hub (apkServerHub), y pregunta a ${info.hub ?? 'ninguno'}');
+    } else if (buildDicha != null && buildDicha != info.build) {
       rechazo = Respuesta.falla(400, 'build_no_coincide',
           'Dices build $buildDicha y el APK trae versionCode ${info.build}. ¿Es el APK que querías?');
     } else if (versionDicha.isNotEmpty && info.version.isNotEmpty && versionDicha != info.version) {
@@ -321,7 +335,7 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
       // manifiesto): uno de otro sabor preguntaría por la suya y no por esta.
       rechazo = Respuesta.falla(409, 'app_distinta',
           'Ese APK es de la app «${info.app}» (lo dice su manifiesto, apkServerApp), no de «$slug».');
-    } else if (info.hub != null && info.hub!.isNotEmpty && !_mismoHub(info.hub!, p.urlPublica)) {
+    } else if (mudanza.isEmpty && info.hub != null && info.hub!.isNotEmpty && !_mismoHub(info.hub!, p.urlPublica)) {
       rechazo = Respuesta.falla(409, 'hub_distinto',
           'Ese APK pregunta por sus versiones a ${info.hub} (apkServerHub), no a este hub: '
               'los equipos nunca verían esta publicación.');
@@ -333,6 +347,11 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
       rechazo = Respuesta.falla(409, 'firma_distinta',
           'Ese APK está firmado con otra llave. Los equipos que tienen «$slug» no podrían '
               'actualizar: Android rechaza una actualización con otra firma.');
+    }
+    if (rechazo == null && mudanza.isNotEmpty && !await _tieneElMismoApk(mudanza, subida.sha256)) {
+      rechazo = Respuesta.falla(409, 'mudanza_sin_apk',
+          'El hub nuevo ($mudanza) no tiene este mismo APK. Publícalo allá primero: así se sabe que tiene la app '
+              'con el mismo paquete y la misma firma, y los equipos que se muden pueden seguir actualizándose.');
     }
     if (rechazo != null) {
       subida.descarta();
@@ -362,11 +381,9 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
         final v = await tx.fila(
           '''insert into apk.version
                (app, build, version, requerido, notas, sha256, bytes, paquete, firma,
-                min_sdk, target_sdk, publicado_por)
-             values (@a, @b, @v, @r, @n, @sha, @bytes, @paq, @firma, @min, @target, @por)
-             returning id, build, version, requerido, notas, sha256, bytes, paquete, firma,
-                       min_sdk, target_sdk, descargas, publicado, publicado_por, retirada,
-                       formato, firma_publicador''',
+                min_sdk, target_sdk, publicado_por, aviso_minutos, mudanza)
+             values (@a, @b, @v, @r, @n, @sha, @bytes, @paq, @firma, @min, @target, @por, @aviso, @mud)
+             returning $columnasVersionReturning''',
           {
             'a': app['id'],
             'b': info.build,
@@ -380,6 +397,8 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
             'min': info.minSdk,
             'target': info.targetSdk,
             'por': p.s.firma,
+            'aviso': aviso,
+            'mud': mudanza.isEmpty ? null : mudanza,
           },
         );
         // La primera versión fija el paquete y la firma de la app.
@@ -402,7 +421,8 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
       avisadas = avisos.anuncia(slug, {'build': info.build, 'requerido': requerido});
     }
     log.info('versiones',
-        '$slug ${nueva['version']}+${info.build} publicada por ${p.s.firma} (${subida.bytes} bytes, avisadas $avisadas)');
+        '$slug ${nueva['version']}+${info.build} publicada por ${p.s.firma} (${subida.bytes} bytes, avisadas $avisadas'
+            '${mudanza.isEmpty ? '' : ', puente a $mudanza'})');
     return Respuesta.creado({...versionJson(nueva, p.urlPublica), 'avisadas': avisadas});
   }, acceso: Acceso.cualquiera, crudo: true);
 
@@ -420,18 +440,25 @@ void registraRutasApps(Servidor s, Almacen almacen, Avisos avisos) {
     if (v == null) return Respuesta.falla(404, 'version_no_existe', 'No hay build $build');
     final c = p.cuerpo;
     final retirar = c.containsKey('retirada') ? c['retirada'] == true : v['retirada'] != null;
+    // aviso_minutos: un número de 0 a 240, o null para volver al de la app.
+    Object? aviso = v['aviso_minutos'];
+    if (c.containsKey('aviso_minutos')) {
+      aviso = c['aviso_minutos'];
+      if (aviso != null && (aviso is! int || aviso < 0 || aviso > 240)) {
+        return Respuesta.falla(400, 'aviso_minutos', 'aviso_minutos va de 0 (sin aviso) a 240, o null (el de la app)');
+      }
+    }
     final r = await p.bd.fila(
       '''update apk.version
-            set notas = @n, requerido = @r,
+            set notas = @n, requerido = @r, aviso_minutos = @aviso,
                 retirada = case when @ret then coalesce(retirada, now()) else null end
           where id = @i
-          returning id, build, version, requerido, notas, sha256, bytes, paquete, firma,
-                    min_sdk, target_sdk, descargas, publicado, publicado_por, retirada,
-                    formato, firma_publicador''',
+          returning $columnasVersionReturning''',
       {
         'i': v['id'],
         'n': c.containsKey('notas') ? p.texto('notas') : v['notas'],
         'r': c.containsKey('requerido') ? c['requerido'] == true : v['requerido'],
+        'aviso': aviso,
         'ret': retirar,
       },
     );
@@ -557,6 +584,25 @@ String? _tipoImagen(Uint8List b) {
 
 /// ¿[a] y [b] son el mismo hub? Sin la barra final ni mayúsculas en el
 /// esquema y el host (`https://Apk.Ejemplo.com/` = `https://apk.ejemplo.com`).
+/// https, o http a la misma máquina (las pruebas).
+bool _httpsOLocal(String url) =>
+    url.startsWith('https://') || RegExp(r'^http://(127\.0\.0\.1|localhost)(:\d+)?$').hasMatch(url);
+
+/// Si el hub [hub] sirve un APK con ese sha256 (de cualquier versión no retirada).
+Future<bool> _tieneElMismoApk(String hub, String sha256) async {
+  final cliente = HttpClient()..connectionTimeout = const Duration(seconds: 10);
+  try {
+    final pet = await cliente.openUrl('HEAD', Uri.parse('$hub/archivos/$sha256.apk'));
+    final r = await pet.close().timeout(const Duration(seconds: 15));
+    await r.drain<void>();
+    return r.statusCode == 200;
+  } catch (_) {
+    return false;
+  } finally {
+    cliente.close(force: true);
+  }
+}
+
 bool _mismoHub(String a, String b) {
   Uri? limpia(String s) {
     final u = Uri.tryParse(s.trim().replaceAll(RegExp(r'/+$'), ''));

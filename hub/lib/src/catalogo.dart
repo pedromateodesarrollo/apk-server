@@ -5,7 +5,10 @@ import 'db.dart';
 
 const columnasVersion = '''v.id, v.build, v.version, v.requerido, v.notas, v.sha256,
   v.bytes, v.paquete, v.firma, v.min_sdk, v.target_sdk, v.descargas,
-  v.publicado, v.publicado_por, v.retirada, v.formato, v.firma_publicador''';
+  v.publicado, v.publicado_por, v.retirada, v.formato, v.firma_publicador, v.aviso_minutos, v.mudanza''';
+
+/// Las mismas columnas, para un `returning` sobre apk.version (sin el alias `v.`).
+final columnasVersionReturning = columnasVersion.replaceAll('v.', '');
 
 /// Slug válido de una app: minúsculas, números y guiones, hasta 63.
 final slugValido = RegExp(r'^[a-z0-9][a-z0-9-]{0,62}$');
@@ -40,9 +43,12 @@ Future<bool> hayRequerida(Bd bd, int app, int build) async =>
     ) !=
     null;
 
-/// Minutos de aviso con cuenta regresiva antes de instalar (0 = sin aviso).
-Future<int> avisoMinutos(Bd bd, int app) async =>
-    (await bd.fila('select aviso_minutos from apk.app where id = @a', {'a': app}))?['aviso_minutos'] as int? ?? 0;
+/// Minutos de aviso con cuenta regresiva antes de instalar (0 = sin aviso): los
+/// de la versión que se ofrece, si los tiene (migraciones/0005); si no, los de la app.
+Future<int> avisoMinutos(Bd bd, int app, [Map<String, Object?>? version]) async =>
+    version?['aviso_minutos'] as int? ??
+    (await bd.fila('select aviso_minutos from apk.app where id = @a', {'a': app}))?['aviso_minutos'] as int? ??
+    0;
 
 /// Ruta de descarga de un APK (o de un MSI). Lleva el sha256: es inmutable y se cachea.
 String rutaArchivo(String sha, [String formato = 'apk']) => '/archivos/$sha.$formato';
@@ -70,6 +76,8 @@ Map<String, Object?> versionJson(Map<String, Object?> v, String urlPublica) {
     'retirada': v['retirada'],
     'formato': v['formato'] ?? 'apk',
     'firma_publicador': v['firma_publicador'],
+    'aviso_minutos': v['aviso_minutos'],
+    'mudanza': v['mudanza'],
     'ruta': ruta,
     'url': '$urlPublica$ruta',
   };

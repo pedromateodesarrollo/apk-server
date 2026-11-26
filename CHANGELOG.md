@@ -2,6 +2,19 @@
 
 Las versiones siguen [SemVer](https://semver.org/lang/es/).
 
+## 0.6.0 — 2026-11-26
+
+* **Hub: aviso por versión.** `aviso_minutos` al publicar (`?aviso_minutos=0`) o
+  con `PATCH /v1/apps/:app/versiones/:build` (`null` vuelve al de la app). La
+  consulta da el de la versión ofrecida si lo tiene. Un arreglo urgente sale sin
+  la cuenta regresiva de la app y sin tocar su ajuste.
+* **Hub: versión puente para mudar una app a otro hub** sin reinstalar.
+  `?mudanza=https://hub-nuevo` (solo llave `admin`): acepta un APK que ya
+  pregunta al hub nuevo, si ese hub sirve el mismo APK (mismo sha256). Los
+  equipos lo instalan desde aquí y desde entonces le preguntan al otro.
+* Migración `0005` (columnas `aviso_minutos` y `mudanza` en `apk.version`). Los
+  clientes no cambian.
+
 ## 0.5.3 — 2026-11-24
 
 * **Android/Flutter:** `UpdateService.ocupado(bool)` (Android: `ocupado(v)`):

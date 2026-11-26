@@ -257,6 +257,88 @@ void main() {
     expect(d['requerido'], isFalse);
   });
 
+  test('aviso por versión: pisa el de la app solo para esa versión', () async {
+    var (st, d) = await pide('POST', '/v1/apps', json: {'slug': 'aviso', 'nombre': 'Aviso'}, token: llave);
+    expect(st, 201);
+    (st, d) = await pide('PATCH', '/v1/apps/aviso', json: {'aviso_minutos': 10}, token: llave);
+    expect(st, 200, reason: '$d');
+    Uint8List de(int build) => apk(build, paquete: 'com.ejemplo.aviso');
+
+    (st, d) = await pide('POST', '/v1/apps/aviso/versiones?aviso_minutos=300', cuerpo: de(1), token: llave);
+    expect((st, d['error']), (400, 'aviso_minutos'));
+    (st, d) = await pide('POST', '/v1/apps/aviso/versiones?aviso_minutos=0', cuerpo: de(1), token: llave);
+    expect(st, 201, reason: '$d');
+    expect(d['aviso_minutos'], 0);
+    (st, d) = await pide('POST', '/v1/apps/aviso/consulta', json: {'build': 0, 'instalacion': 'equipo-aviso-1'});
+    expect(d['aviso_minutos'], 0, reason: 'la versión ofrecida dice 0 aunque la app diga 10');
+
+    (st, d) = await pide('POST', '/v1/apps/aviso/versiones', cuerpo: de(2), token: llave);
+    expect(st, 201, reason: '$d');
+    (st, d) = await pide('POST', '/v1/apps/aviso/consulta', json: {'build': 1, 'instalacion': 'equipo-aviso-1'});
+    expect(d['aviso_minutos'], 10, reason: 'sin aviso propio, el de la app');
+
+    (st, d) = await pide('PATCH', '/v1/apps/aviso/versiones/2', json: {'aviso_minutos': 3}, token: llave);
+    expect(st, 200, reason: '$d');
+    (st, d) = await pide('POST', '/v1/apps/aviso/consulta', json: {'build': 1, 'instalacion': 'equipo-aviso-1'});
+    expect(d['aviso_minutos'], 3);
+    (st, d) = await pide('PATCH', '/v1/apps/aviso/versiones/2', json: {'aviso_minutos': 241}, token: llave);
+    expect((st, d['error']), (400, 'aviso_minutos'));
+    (st, d) = await pide('PATCH', '/v1/apps/aviso/versiones/2', json: {'aviso_minutos': null}, token: llave);
+    expect(st, 200, reason: '$d');
+    (st, d) = await pide('POST', '/v1/apps/aviso/consulta', json: {'build': 1, 'instalacion': 'equipo-aviso-1'});
+    expect(d['aviso_minutos'], 10, reason: 'null vuelve al de la app');
+  });
+
+  test('versión puente: solo un administrador, al hub que dice el APK y si allá ya está ese APK', () async {
+    // Otro hub de mentira: solo contesta que tiene el APK cuyo sha256 se le diga.
+    String? tiene;
+    final otro = await HttpServer.bind('127.0.0.1', 0);
+    otro.listen((r) {
+      r.response.statusCode = r.method == 'HEAD' && tiene != null && r.uri.path == '/archivos/$tiene.apk' ? 200 : 404;
+      r.response.close();
+    });
+    final nuevo = 'http://127.0.0.1:${otro.port}';
+    try {
+      var (st, d) = await pide('POST', '/v1/apps', json: {'slug': 'mudable', 'nombre': 'Mudable'}, token: llave);
+      expect(st, 201);
+      Uint8List de(int build, String hubApk) => apk(build,
+          paquete: 'com.ejemplo.mudable', metadatos: {ApkInfo.metaHub: hubApk, ApkInfo.metaApp: 'mudable'});
+      (st, d) = await pide('POST', '/v1/apps/mudable/versiones', cuerpo: de(1, base), token: llave);
+      expect(st, 201, reason: '$d');
+
+      final puente = de(2, nuevo);
+      (st, d) = await pide('POST', '/v1/apps/mudable/versiones', cuerpo: puente, token: llave);
+      expect((st, d['error']), (409, 'hub_distinto'), reason: 'sin mudanza sigue sin pasar');
+
+      (st, d) = await pide('POST', '/v1/llaves', json: {'nombre': 'solo publicar', 'permisos': ['publicar']}, token: llave);
+      expect(st, 201, reason: '$d');
+      final publicar = d['llave'] as String;
+      (st, d) = await pide('POST', '/v1/apps/mudable/versiones?mudanza=$nuevo', cuerpo: puente, token: publicar);
+      expect((st, d['error']), (403, 'sin_permiso'));
+
+      (st, d) = await pide('POST', '/v1/apps/mudable/versiones?mudanza=$base', cuerpo: puente, token: llave);
+      expect((st, d['error']), (400, 'mudanza'), reason: 'mudarse a sí mismo no es mudanza');
+      (st, d) = await pide('POST', '/v1/apps/mudable/versiones?mudanza=https://otro.ejemplo.com', cuerpo: puente, token: llave);
+      expect((st, d['error']), (409, 'mudanza_hub'), reason: 'el APK pregunta a otro hub que el dicho');
+
+      (st, d) = await pide('POST', '/v1/apps/mudable/versiones?mudanza=$nuevo', cuerpo: puente, token: llave);
+      expect((st, d['error']), (409, 'mudanza_sin_apk'), reason: 'el hub nuevo todavía no lo tiene');
+
+      tiene = sha256.convert(puente).toString();
+      (st, d) = await pide('POST', '/v1/apps/mudable/versiones?mudanza=$nuevo/&aviso_minutos=1', cuerpo: puente, token: llave);
+      expect(st, 201, reason: '$d');
+      expect(d['mudanza'], nuevo);
+      expect(d['aviso_minutos'], 1);
+
+      (st, d) = await pide('POST', '/v1/apps/mudable/consulta', json: {'build': 1, 'instalacion': 'equipo-mudable-1'});
+      expect(d['actualizar'], isTrue);
+      expect(d['version']['build'], 2, reason: 'los equipos reciben el puente');
+      expect(d['aviso_minutos'], 1);
+    } finally {
+      await otro.close(force: true);
+    }
+  });
+
   test('rechaza otro paquete, otra firma y una build repetida con otro APK', () async {
     var (st, d) = await pide('POST', '/v1/apps/inventario/versiones',
         cuerpo: apk(12, paquete: 'com.ejemplo.otra'), token: llave);

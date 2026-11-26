@@ -180,6 +180,8 @@ Sube un APK. El cuerpo es el archivo tal cual. El hub lee del APK el `applicatio
 | `requerido` | 1 |  | Obligatoria: nadie se queda por debajo de esta build. |
 | `build` | entero |  | Opcional: si se da y no es la del APK, se rechaza. |
 | `version` | texto |  | Opcional: igual, contra el `versionName`. |
+| `aviso_minutos` | 0–240 |  | Opcional: la cuenta regresiva de **esta** versión, en lugar de la de la app (p. ej. `0` para un arreglo urgente). |
+| `mudanza` | URL |  | **Versión puente** a otro hub (solo llave `admin`). El APK pregunta ya a ese hub (`apkServerHub`) y se acepta aquí si ese hub ya sirve **el mismo APK** (mismo sha256: mismo paquete y misma firma). Los equipos lo instalan desde aquí y desde entonces le preguntan al otro. |
 
 ```json
 { …la versión…, "avisadas": 12 }
@@ -226,6 +228,7 @@ Cambia `notas`, `requerido` o `retirada` (true deja de ofrecerla y de servirla; 
 | `notas` | texto | no |  |
 | `requerido` | booleano | no |  |
 | `retirada` | booleano | no |  |
+| `aviso_minutos` | entero o null | no | 0–240 para esta versión; `null` vuelve al de la app. |
 
 ### `DELETE /v1/apps/:app/versiones/:build`
 
@@ -414,6 +417,10 @@ Manda un correo de prueba a quien lo pide. Si el servidor no lo acepta, `502` co
 | 409 | `paquete_distinto` | El APK es de otro `applicationId` que la app. |
 | 409 | `app_distinta` | El manifiesto del APK dice que es de otra app (`apkServerApp`). |
 | 409 | `hub_distinto` | El manifiesto del APK pregunta a otro hub (`apkServerHub`). |
+| 400 | `mudanza` | `mudanza` no es una dirección https, o es este mismo hub. |
+| 409 | `mudanza_hub` | El APK no pregunta al hub de `mudanza`. |
+| 409 | `mudanza_sin_apk` | El hub de `mudanza` no sirve ese mismo APK: publícalo allá primero. |
+| 400 | `aviso_minutos` | Fuera de 0–240. |
 | 409 | `firma_distinta` | El APK está firmado con otra llave: los equipos no podrían actualizar. |
 | 409 | `build_repetida` | Esa build ya está publicada con otro APK. |
 | 410 | `retirada` | Se pidió el APK de una versión retirada. |
